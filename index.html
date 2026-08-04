@@ -1,816 +1,3267 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inhaler Flow Monitor - Ellita</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>呼吸訓練 · 五款遊戲</title>
+    <!-- Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com">
+    </script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
     <style>
-        :root {
-            --COL_BG: #f4f6f8;
-            --COL_PANEL: #ffffff;
-            --COL_ACCENT: #1f4e79;
-            --COL_ACCENT2: #2e7d32;
-            --COL_PATIENT: #c0392b;
-            --COL_TEXT: #2c3e50;
-            --COL_GRID: #d9e1e8;
-            --FONT_FAMILY: "Segoe UI", system-ui, sans-serif;
-        }
+        /* 全局自定義 */
         * {
             box-sizing: border-box;
+            user-select: none;
         }
         body {
-            font-family: var(--FONT_FAMILY);
-            background: var(--COL_BG);
-            margin: 0;
-            padding: 20px;
+            background: #0b0e14;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
         }
-        .container {
-            max-width: 1040px;
-            margin: 0 auto;
-            background: var(--COL_PANEL);
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        /* 呼吸強度條 */
+        .breath-bar-track {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 999px;
+            height: 6px;
+            flex: 1;
+            overflow: hidden;
         }
-        .header {
+        .breath-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4ade80, #facc15, #f87171);
+            border-radius: 999px;
+            transition: width 0.1s ease-out;
+            width: 0%;
+        }
+        /* 遊戲容器 */
+        .game-canvas-wrap {
+            background: #141a24;
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+            overflow: hidden;
+            position: relative;
+        }
+        /* HUD 覆層 */
+        .hud-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 16px 20px;
+            pointer-events: none;
             display: flex;
-            align-items: baseline;
+            justify-content: space-between;
+            align-items: flex-start;
+            z-index: 10;
+        }
+        .hud-left {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+            padding: 10px 16px;
+            border-radius: 16px;
+            pointer-events: auto;
+            color: #e2e8f0;
+            font-size: 13px;
+            line-height: 1.5;
+            min-width: 140px;
+        }
+        .hud-right {
+            display: flex;
             gap: 20px;
-            padding-bottom: 16px;
-            border-bottom: 1px solid var(--COL_GRID);
-            margin-bottom: 16px;
-        }
-        .header h1 {
-            color: var(--COL_ACCENT);
-            font-size: 24px;
-            font-weight: 600;
-            margin: 0;
-        }
-        .header .subtitle {
-            color: #7f8c8d;
-            font-size: 14px;
-        }
-        .controls {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px 20px;
-            padding: 16px;
-            background: var(--COL_PANEL);
-            border: 1px solid var(--COL_GRID);
-            border-radius: 8px;
-            margin-bottom: 16px;
-        }
-        .control-group {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        .control-group label {
-            color: var(--COL_TEXT);
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+            padding: 10px 20px;
+            border-radius: 16px;
+            pointer-events: auto;
+            color: #e2e8f0;
             font-size: 14px;
             font-weight: 500;
         }
-        select,
-        input,
-        button {
-            padding: 6px 12px;
-            border: 1px solid #d0d8e0;
-            border-radius: 6px;
-            font-size: 14px;
-            font-family: var(--FONT_FAMILY);
-            background: white;
-            color: var(--COL_TEXT);
-        }
-        select:focus,
-        input:focus {
-            outline: none;
-            border-color: var(--COL_ACCENT);
-        }
-        button {
-            cursor: pointer;
-            background: #f0f3f7;
-            transition: all 0.2s;
-            padding: 6px 16px;
-        }
-        button:hover {
-            background: #e1e8ee;
-        }
-        button.primary {
-            background: var(--COL_ACCENT);
-            color: white;
-            border-color: var(--COL_ACCENT);
-            font-weight: bold;
-        }
-        button.primary:hover {
-            background: #163d5e;
-        }
-        button.danger {
-            background: #c0392b;
-            color: white;
-            border-color: #c0392b;
-        }
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        .stats {
+        .hud-right .stat {
             display: flex;
-            gap: 24px;
-            margin-left: auto;
-            font-size: 14px;
-            color: var(--COL_TEXT);
+            align-items: center;
+            gap: 6px;
         }
-        .stats span {
-            background: #f8fafc;
-            padding: 4px 14px;
-            border-radius: 20px;
-            border: 1px solid var(--COL_GRID);
+        .hud-right .stat i {
+            font-size: 16px;
+            opacity: 0.7;
         }
-        .stats strong {
-            color: var(--COL_ACCENT);
-        }
-        .chart-container {
-            background: var(--COL_PANEL);
-            border: 1px solid var(--COL_GRID);
-            border-radius: 8px;
-            padding: 8px;
-            margin-bottom: 16px;
-            height: 420px;
-            position: relative;
-        }
-        #flowChart {
-            width: 100% !important;
-            height: 100% !important;
-        }
-        .status-bar {
-            background: var(--COL_ACCENT);
-            color: white;
-            padding: 10px 16px;
-            border-radius: 6px;
-            font-size: 14px;
+        /* 呼吸條在HUD下方 */
+        .breath-hud {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60%;
+            max-width: 500px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            padding: 8px 18px;
+            border-radius: 999px;
             display: flex;
-            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            z-index: 10;
+            pointer-events: auto;
+            border: 1px solid rgba(255, 255, 255, 0.06);
         }
-        .status-bar .status-msg {
-            opacity: 0.9;
-        }
-        .status-bar .peak {
+        .breath-hud .label {
+            color: #94a3b8;
+            font-size: 12px;
             font-weight: 600;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
         }
-        .compat-warning {
-            background: #fff3cd;
-            color: #856404;
-            padding: 10px 16px;
-            border-radius: 6px;
+        .breath-hud .value {
+            color: #f1f5f9;
+            font-size: 14px;
+            font-weight: 700;
+            min-width: 36px;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+        }
+        /* 休息遮罩 */
+        .rest-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 50;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(12px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            border-radius: 24px;
+            transition: opacity 0.4s;
+        }
+        .rest-overlay .breath-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            font-weight: 300;
+            transition: transform 1.2s ease-in-out, border-color 0.6s;
+            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.03);
+        }
+        .rest-overlay .breath-circle.inhale {
+            transform: scale(1.4);
+            border-color: #4ade80;
+        }
+        .rest-overlay .breath-circle.exhale {
+            transform: scale(0.7);
+            border-color: #f87171;
+        }
+        .rest-overlay .breath-circle.hold {
+            transform: scale(1.0);
+            border-color: #facc15;
+        }
+        /* 按鈕 */
+        .btn-game {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e2e8f0;
+            padding: 6px 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            pointer-events: auto;
+            backdrop-filter: blur(4px);
+        }
+        .btn-game:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        .btn-game.primary {
+            background: #6366f1;
+            border-color: #818cf8;
+            color: white;
+        }
+        .btn-game.primary:hover {
+            background: #4f46e5;
+        }
+        .btn-game.danger {
+            background: #ef4444;
+            border-color: #f87171;
+            color: white;
+        }
+        .btn-game.danger:hover {
+            background: #dc2626;
+        }
+        .btn-game.success {
+            background: #22c55e;
+            border-color: #4ade80;
+            color: white;
+        }
+        .btn-game.success:hover {
+            background: #16a34a;
+        }
+        /* 遊戲選擇卡片 */
+        .game-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 20px;
+            padding: 24px;
+            transition: all 0.3s;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+            color: #e2e8f0;
+        }
+        .game-card:hover {
+            background: rgba(255, 255, 255, 0.07);
+            border-color: rgba(255, 255, 255, 0.15);
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        .game-card .icon {
+            font-size: 40px;
             margin-bottom: 12px;
-            border: 1px solid #ffc107;
-            display: none;
         }
-        .compat-warning.show {
-            display: block;
+        .game-card .title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 4px;
         }
-        @media (max-width: 700px) {
-            .container {
-                padding: 14px;
+        .game-card .desc {
+            font-size: 13px;
+            color: #94a3b8;
+            line-height: 1.5;
+        }
+        /* 選單頁背景 */
+        .menu-bg {
+            background: radial-gradient(ellipse at 20% 50%, #1e1b4b, #0b0e14 70%);
+            min-height: 100vh;
+        }
+        /* 滾動條 */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 999px;
+        }
+        /* 工具類 */
+        .text-shadow {
+            text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+        }
+        .glow-gold {
+            box-shadow: 0 0 30px rgba(250, 204, 21, 0.15);
+        }
+        /* 遊戲過渡 */
+        .fade-enter {
+            animation: fadeIn 0.4s ease-out;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.98);
             }
-            .controls {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            .stats {
-                margin-left: 0;
+            to {
+                opacity: 1;
+                transform: scale(1);
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <h1>Inhaler Flow Monitor</h1>
-            <span class="subtitle">Acoustic inhaler flow visualization</span>
-        </div>
 
-        <!-- 瀏覽器相容性警告 -->
-        <div class="compat-warning" id="compatWarning">
-            ⚠️ 請使用 <strong>Chrome</strong> 或 <strong>Edge</strong> 瀏覽器開啟此頁面，以支援 Web Serial API。
-        </div>
+    <div id="root" class="menu-bg text-white p-4 md:p-8"></div>
 
-        <!-- Controls -->
-        <div class="controls">
-            <div class="control-group">
-                <label>USB Port</label>
-                <select id="portSelect" style="min-width:180px;"></select>
-                <button id="refreshBtn">Refresh</button>
-                <button id="connectBtn" class="primary">Connect</button>
-            </div>
-            <div class="control-group">
-                <label>Patient ID</label>
-                <input id="patientInput" placeholder="e.g. P001" value="Demo" style="width:120px;">
-            </div>
-            <div class="control-group">
-                <button id="measureBtn">Start</button>
-                <button id="clearBtn">Clear</button>
-                <button id="saveBtn" class="primary">Save CSV</button>
-            </div>
-            <div class="stats">
-                <span>Records: <strong id="recordCount">0</strong></span>
-                <span>Peak: <strong id="peakValue">—</strong> L/min</span>
-            </div>
-        </div>
-
-        <!-- Chart -->
-        <div class="chart-container">
-            <canvas id="flowChart"></canvas>
-        </div>
-
-        <!-- Status -->
-        <div class="status-bar">
-            <span class="status-msg" id="statusMsg">Not connected</span>
-            <span class="peak" id="statusPeak"></span>
-        </div>
-    </div>
-
-    <script>
+    <script type="module">
         // ============================================================
-        // 檢查瀏覽器支援 Web Serial API
+        //  1. 核心工具 & 類型
         // ============================================================
-        (function checkCompatibility() {
-            const warning = document.getElementById('compatWarning');
-            const connectBtn = document.getElementById('connectBtn');
-            const statusMsg = document.getElementById('statusMsg');
+        const $ = (sel, ctx = document) => ctx.querySelector(sel);
+        const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 
-            if (!('serial' in navigator)) {
-                warning.classList.add('show');
-                connectBtn.disabled = true;
-                connectBtn.textContent = '不支援';
-                statusMsg.textContent = '⚠️ 請使用 Chrome 或 Edge 瀏覽器';
-                console.warn('Web Serial API not supported');
+        /** 遊戲模式枚舉 */
+        const GAMES = {
+            WIND_PAINTER: 'wind_painter',
+            CANDLE_EXPEDITION: 'candle_expedition',
+            MAGE_BREAKER: 'mage_breaker',
+            DANDELION_EXPRESS: 'dandelion_express',
+            GLASS_HEART: 'glass_heart'
+        };
+
+        const GAME_META = {
+            [GAMES.WIND_PAINTER]: {
+                label: '風之繪師',
+                icon: '🎨',
+                desc: '呼吸控制畫筆，描繪水彩形狀',
+                theme: 'bg-gradient-to-br from-rose-100/10 via-amber-100/5 to-sky-100/10'
+            },
+            [GAMES.CANDLE_EXPEDITION]: {
+                label: '燭光遠征',
+                icon: '🕯️',
+                desc: '呼吸控制燭火，照亮迷宮尋路',
+                theme: 'bg-gradient-to-br from-amber-900/20 via-stone-800/10 to-slate-900/20'
+            },
+            [GAMES.MAGE_BREAKER]: {
+                label: '魔導士破魔',
+                icon: '⚔️',
+                desc: '呼吸充能，釋放法術擊退敵人',
+                theme: 'bg-gradient-to-br from-indigo-900/20 via-purple-800/10 to-fuchsia-900/20'
+            },
+            [GAMES.DANDELION_EXPRESS]: {
+                label: '蒲公英快遞',
+                icon: '🌿',
+                desc: '呼吸控制飛行，送達花粉',
+                theme: 'bg-gradient-to-br from-emerald-900/20 via-teal-800/10 to-cyan-900/20'
+            },
+            [GAMES.GLASS_HEART]: {
+                label: '玻璃心大師',
+                icon: '💎',
+                desc: '呼吸控制壓力，雕刻水晶',
+                theme: 'bg-gradient-to-br from-cyan-900/20 via-blue-800/10 to-indigo-900/20'
             }
-        })();
+        };
 
-        // =====================================================
-        //  Ideal waveform (0.5 s per point) - from Python
-        // =====================================================
-        const IDEAL_FLOW = [0, 40, 40, 40, 40, 20, 5, 0, 0, 0];
-        const IDEAL_DT = 0.5;
-
-        // =====================================================
-        //  Smooth curve (from Python)
-        // =====================================================
-        function smoothCurve(xs, ys) {
-            const n = xs.length;
-            if (n < 3) return { x: xs, y: ys };
-            const sm = [];
-            for (let i = 0; i < n; i++) {
-                let lo = Math.max(0, i - 1);
-                let hi = Math.min(n, i + 2);
-                let sum = 0;
-                for (let j = lo; j < hi; j++) {
-                    sum += ys[j];
-                }
-                sm.push(sum / (hi - lo));
-            }
-            return { x: xs, y: sm };
-        }
-
-        // =====================================================
-        //  Generate ideal curve (from Python)
-        // =====================================================
-        function generateIdealCurve() {
-            const xs = IDEAL_FLOW.map((_, i) => i * IDEAL_DT);
-            const ys = [...IDEAL_FLOW];
-            if (xs.length >= 4) {
-                const n = 300;
-                const xnew = [],
-                    ynew = [];
-                const step = (xs[xs.length - 1] - xs[0]) / (n - 1);
-                for (let i = 0; i < n; i++) {
-                    const t = xs[0] + i * step;
-                    xnew.push(t);
-                    let idx = 0;
-                    for (let j = 0; j < xs.length - 1; j++) {
-                        if (t >= xs[j] && t <= xs[j + 1]) {
-                            idx = j;
-                            break;
-                        }
-                        if (j === xs.length - 2) idx = j;
-                    }
-                    const x0 = xs[idx],
-                        x1 = xs[idx + 1];
-                    const y0 = ys[idx],
-                        y1 = ys[idx + 1];
-                    const frac = (t - x0) / (x1 - x0 || 1);
-                    const val = y0 + (y1 - y0) * frac;
-                    ynew.push(Math.max(0, val));
-                }
-                return { x: xnew, y: ynew };
-            }
-            return { x: xs, y: ys };
-        }
-
-        // =====================================================
-        //  Parse functions (from Python)
-        // =====================================================
-        function parseFFT(line) {
-            if (!line.includes('[FFT]')) return null;
-            const bands = {};
-            const regex = /(\d+)k\s*:\s*([-+]?\d*\.?\d+)/g;
-            let m;
-            while ((m = regex.exec(line)) !== null) {
-                const k = parseInt(m[1]);
-                const v = parseFloat(m[2]);
-                if (k >= 1 && k <= 20) {
-                    bands[k] = v;
-                }
-            }
-            return Object.keys(bands).length > 0 ? bands : null;
-        }
-
-        function parseDetect(line) {
-            if (!line.includes('[DETECT]')) return null;
-            const flowMatch = line.match(/Flow\s*=\s*(YES|no)/i);
-            if (!flowMatch) return null;
-            const flow_yes = flowMatch[1].toUpperCase() === 'YES';
-            let est = 0.0;
-            const estMatch = line.match(/Est\s*=\s*([-+]?\d*\.?\d+)/);
-            if (estMatch) est = parseFloat(estMatch[1]) || 0;
-            let low_e = 0;
-            const lowMatch = line.match(/LowEnergy\s*=\s*([-+]?\d+)/);
-            if (lowMatch) low_e = parseInt(lowMatch[1]) || 0;
-            return { flow_yes, est, low_e };
-        }
-
-        // =====================================================
-        //  Main Application (translating Python class)
-        // =====================================================
-        class FlowMonitorApp {
+        // ============================================================
+        //  2. 呼吸輸入系統 (BreathController)
+        // ============================================================
+        class BreathController {
             constructor() {
-                // State (matching Python)
-                this.window_history = [false, false, false];
+                this.value = 50; // 0-100
+                this.raw = 50;
+                this.mode = 'simulate'; // 'simulate' | 'keyboard' | 'serial'
+                this.listeners = [];
+                this.serialPort = null;
                 this.reader = null;
-                this.measuring = false;
-                this.t0 = null;
-                this.started = false;
-                this.times = [];
-                this.flows = [];
-                this.records = [];
-                this.last_fft = null;
-                this.prev_flow_yes = false;
-                this.connected = false;
-                this.port = null;
-
-                // DOM refs
-                this.portSelect = document.getElementById('portSelect');
-                this.refreshBtn = document.getElementById('refreshBtn');
-                this.connectBtn = document.getElementById('connectBtn');
-                this.patientInput = document.getElementById('patientInput');
-                this.measureBtn = document.getElementById('measureBtn');
-                this.clearBtn = document.getElementById('clearBtn');
-                this.saveBtn = document.getElementById('saveBtn');
-                this.statusMsg = document.getElementById('statusMsg');
-                this.recordCount = document.getElementById('recordCount');
-                this.peakValue = document.getElementById('peakValue');
-
-                // Setup
-                this.setupChart();
-                this.refreshPorts();
-                this.bindEvents();
+                this.simInterval = null;
+                this.baseLine = 50;
+                this.isRunning = false;
+                // 鍵盤狀態
+                this.keys = { up: false, down: false };
+                this._boundKey = this._handleKey.bind(this);
             }
 
-            // ---------------- Chart Setup ----------------
-            setupChart() {
-                const ctx = document.getElementById('flowChart').getContext('2d');
-                const ideal = generateIdealCurve();
+            // ----- 模擬模式 -----
+            startSimulate() {
+                this.mode = 'simulate';
+                this.isRunning = true;
+                let phase = 0;
+                if (this.simInterval) clearInterval(this.simInterval);
+                this.simInterval = setInterval(() => {
+                    if (!this.isRunning) return;
+                    phase += 0.04;
+                    // 正弦波 30~85
+                    const raw = 55 + 30 * Math.sin(phase);
+                    const v = Math.max(0, Math.min(100, Math.round(raw)));
+                    this._setValue(v);
+                }, 80);
+                return this;
+            }
 
-                this.chart = new Chart(ctx, {
-                    type: 'scatter',
-                    data: {
-                        datasets: [
-                            {
-                                label: 'Target (ideal)',
-                                data: ideal.x.map((x, i) => ({ x, y: ideal.y[i] })),
-                                borderColor: '#2e7d32',
-                                backgroundColor: 'transparent',
-                                borderDash: [6, 5],
-                                borderWidth: 2.2,
-                                pointRadius: 0,
-                                tension: 0.3,
-                                showLine: true,
-                                fill: false,
-                                order: 1
-                            },
-                            {
-                                label: 'Patient',
-                                data: [],
-                                borderColor: '#c0392b',
-                                backgroundColor: 'rgba(192, 57, 43, 0.05)',
-                                borderWidth: 2.4,
-                                pointRadius: 0,
-                                tension: 0.4,
-                                showLine: true,
-                                fill: true,
-                                order: 0
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        animation: false,
-                        plugins: {
-                            legend: {
-                                position: 'top',
-                                labels: { usePointStyle: true, boxWidth: 10 }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                type: 'linear',
-                                title: { display: true, text: 'Time (secs)' },
-                                min: 0,
-                                max: 10,
-                                grid: { color: '#d9e1e8' }
-                            },
-                            y: {
-                                title: { display: true, text: 'Flow (L/min)' },
-                                min: 0,
-                                max: 70,
-                                grid: { color: '#d9e1e8' }
-                            }
-                        }
+            stopSimulate() {
+                this.isRunning = false;
+                if (this.simInterval) {
+                    clearInterval(this.simInterval);
+                    this.simInterval = null;
+                }
+                return this;
+            }
+
+            // ----- 鍵盤模式 -----
+            startKeyboard() {
+                this.mode = 'keyboard';
+                this.isRunning = true;
+                document.addEventListener('keydown', this._boundKey);
+                document.addEventListener('keyup', this._boundKey);
+                // 初始值
+                this._setValue(50);
+                this._keyboardLoop();
+                return this;
+            }
+
+            stopKeyboard() {
+                this.isRunning = false;
+                document.removeEventListener('keydown', this._boundKey);
+                document.removeEventListener('keyup', this._boundKey);
+                if (this._kbdInterval) {
+                    clearInterval(this._kbdInterval);
+                    this._kbdInterval = null;
+                }
+                return this;
+            }
+
+            _handleKey(e) {
+                const key = e.key.toLowerCase();
+                if (key === 'arrowup' || key === 'w') {
+                    e.preventDefault();
+                    this.keys.up = e.type === 'keydown';
+                }
+                if (key === 'arrowdown' || key === 's') {
+                    e.preventDefault();
+                    this.keys.down = e.type === 'keydown';
+                }
+                // 快捷重置
+                if (key === ' ' && e.type === 'keydown') {
+                    e.preventDefault();
+                    this._setValue(50);
+                }
+            }
+
+            _keyboardLoop() {
+                if (this._kbdInterval) clearInterval(this._kbdInterval);
+                this._kbdInterval = setInterval(() => {
+                    if (!this.isRunning) return;
+                    let delta = 0;
+                    if (this.keys.up) delta = 2.5;
+                    if (this.keys.down) delta = -2.5;
+                    if (delta !== 0) {
+                        let v = this.value + delta;
+                        v = Math.max(0, Math.min(100, v));
+                        this._setValue(Math.round(v));
                     }
-                });
+                }, 50);
             }
 
-            // ---------------- Ports (from Python) ----------------
-            async refreshPorts() {
+            // ----- 序列埠 (Web Serial) -----
+            async connectSerial() {
                 try {
-                    if (!('serial' in navigator)) {
-                        this.statusMsg.textContent = '⚠️ 瀏覽器不支援 Web Serial API';
-                        return;
-                    }
-                    const ports = await navigator.serial.getPorts();
-                    this.portSelect.innerHTML = '';
-                    if (ports.length === 0) {
-                        const opt = document.createElement('option');
-                        opt.text = 'No COM port found. Check USB connection.';
-                        opt.value = '';
-                        this.portSelect.appendChild(opt);
-                        this.statusMsg.textContent = 'No COM port found. Check USB connection.';
-                        return;
-                    }
-                    for (const p of ports) {
-                        const info = p.getInfo();
-                        const label = info.usbProductId ?
-                            `USB Device (${info.usbVendorId}:${info.usbProductId})` :
-                            'Serial Device';
-                        const opt = document.createElement('option');
-                        opt.value = label;
-                        opt.text = label;
-                        this.portSelect.appendChild(opt);
-                    }
-                    this.portSelect.selectedIndex = 0;
-                    this.statusMsg.textContent = `Found ${ports.length} port(s)`;
+                    const port = await navigator.serial.requestPort();
+                    await port.open({ baudRate: 115200 });
+                    this.serialPort = port;
+                    this.mode = 'serial';
+                    this.isRunning = true;
+                    this.reader = port.readable.getReader();
+                    this._readSerialLoop();
+                    return true;
                 } catch (e) {
-                    this.statusMsg.textContent = `Error: ${e.message}`;
+                    console.warn('Serial connection failed:', e);
+                    return false;
                 }
             }
 
-            // ---------------- Connection (from Python) ----------------
-            async toggleConnection() {
-                if (this.connected) {
-                    await this.disconnect();
-                } else {
-                    await this.connect();
-                }
-            }
-
-            async connect() {
+            async _readSerialLoop() {
+                if (!this.reader) return;
                 try {
-                    if (!('serial' in navigator)) {
-                        throw new Error('Web Serial API not supported. Please use Chrome or Edge.');
-                    }
-
-                    let ports = await navigator.serial.getPorts();
-
-                    if (ports.length === 0) {
-                        this.statusMsg.textContent = '請從彈出視窗中選擇您的 USB 裝置...';
-                        const newPort = await navigator.serial.requestPort();
-                        if (!newPort) {
-                            this.statusMsg.textContent = '⚠️ 未選擇任何裝置';
-                            return;
-                        }
-                        ports = await navigator.serial.getPorts();
-                        if (ports.length === 0) {
-                            this.statusMsg.textContent = '⚠️ 無法取得埠列表，請重新整理頁面';
-                            return;
+                    while (this.isRunning) {
+                        const { value, done } = await this.reader.read();
+                        if (done) break;
+                        // 假設串口傳來 "V:85\n" 格式
+                        const str = new TextDecoder().decode(value);
+                        const match = str.match(/V:(\d+)/);
+                        if (match) {
+                            const v = parseInt(match[1], 10);
+                            if (!isNaN(v) && v >= 0 && v <= 100) {
+                                this._setValue(v);
+                            }
                         }
                     }
-
-                    this.port = ports[0];
-                    await this.port.open({ baudRate: 115200 });
-                    this.connected = true;
-
-                    // Reset state (like Python)
-                    this.clearPlot();
-                    this.records = [];
-                    this.last_fft = null;
-                    this.measuring = false;
-                    this.measureBtn.textContent = 'Start';
-                    this.updateRecordCount();
-                    this.prev_flow_yes = false;
-                    this.window_history = [false, false, false];
-
-                    this.connectBtn.textContent = 'Disconnect';
-                    this.connectBtn.className = 'danger';
-                    this.portSelect.disabled = true;
-                    this.refreshBtn.disabled = true;
-                    this.statusMsg.textContent = '✅ 已連線，等待數據...';
-
-                    this.startReading();
-
                 } catch (e) {
-                    this.statusMsg.textContent = `❌ 連線失敗: ${e.message}`;
-                    console.error('Connection error:', e);
+                    console.warn('Serial read error:', e);
+                } finally {
+                    if (this.reader) {
+                        this.reader.releaseLock();
+                        this.reader = null;
+                    }
                 }
             }
 
-            async disconnect() {
+            async disconnectSerial() {
+                this.isRunning = false;
                 if (this.reader) {
-                    try {
-                        await this.reader.cancel();
-                    } catch (e) {}
+                    try { await this.reader.cancel(); } catch (_) {}
                     this.reader = null;
                 }
-                if (this.port) {
-                    try {
-                        await this.port.close();
-                    } catch (e) {}
-                    this.port = null;
+                if (this.serialPort) {
+                    try { await this.serialPort.close(); } catch (_) {}
+                    this.serialPort = null;
                 }
-                this.connected = false;
-                this.connectBtn.textContent = 'Connect';
-                this.connectBtn.className = 'primary';
-                this.portSelect.disabled = false;
-                this.refreshBtn.disabled = false;
-                this.statusMsg.textContent = '已斷線';
+                this.mode = 'simulate';
+                return this;
             }
 
-            // ---------------- Reading (from Python SerialReader) ----------------
-            async startReading() {
-                if (!this.port) return;
-
-                const reader = this.port.readable.getReader();
-                this.reader = reader;
-                const decoder = new TextDecoder('utf-8');
-                let buffer = '';
-
-                try {
-                    while (true) {
-                        const { value, done } = await reader.read();
-                        if (done) break;
-
-                        const chunk = decoder.decode(value, { stream: true });
-                        buffer += chunk;
-                        const lines = buffer.split('\n');
-                        buffer = lines.pop() || '';
-
-                        for (const line of lines) {
-                            const trimmed = line.trim();
-                            if (trimmed) {
-                                this.handleLine(trimmed);
-                            }
+            // ----- 校正 -----
+            async calibrate(duration = 2000) {
+                const samples = [];
+                return new Promise((resolve) => {
+                    const start = Date.now();
+                    const interval = setInterval(() => {
+                        samples.push(this.value);
+                        if (Date.now() - start >= duration) {
+                            clearInterval(interval);
+                            const avg = samples.reduce((a, b) => a + b, 0) / samples.length;
+                            this.baseLine = Math.round(avg);
+                            resolve(this.baseLine);
                         }
-                    }
-                } catch (e) {
-                    if (e.name !== 'AbortError') {
-                        console.warn('Read error:', e);
-                        this.statusMsg.textContent = `讀取錯誤: ${e.message}`;
-                    }
-                }
-            }
-
-            // ---------------- Handle Line (from Python _handle_line) ----------------
-            handleLine(line) {
-                if (!this.measuring) return;
-
-                const fft = parseFFT(line);
-                if (fft) {
-                    this.last_fft = fft;
-                    return;
-                }
-
-                const det = parseDetect(line);
-                if (!det) return;
-
-                let { flow_yes, est, low_e } = det;
-
-                // -------------------------------------------------
-                // 1. Noise filtering (from Python)
-                // -------------------------------------------------
-                let is_candidate = false;
-                if (flow_yes || (low_e > 800000 && est > 0.0)) {
-                    is_candidate = true;
-                }
-                if (this.last_fft) {
-                    if ((this.last_fft[1] || 0) > 800000 && (this.last_fft[8] || 0) < 50000) {
-                        is_candidate = false;
-                    }
-                }
-
-                // -------------------------------------------------
-                // 2. Sliding window majority (from Python)
-                // -------------------------------------------------
-                this.window_history.shift();
-                this.window_history.push(is_candidate);
-                const true_count = this.window_history.filter(x => x === true).length;
-
-                if (true_count >= 2) {
-                    flow_yes = true;
-                    if (est === 0.0 && low_e > 1000000) {
-                        est = 15.0;
-                    }
-                } else {
-                    flow_yes = false;
-                    est = 0.0;
-                }
-
-                // -------------------------------------------------
-                // 3. Record data (from Python)
-                // -------------------------------------------------
-                const now = Date.now() / 1000;
-                const ts = new Date().toISOString().slice(0, -1);
-                const elapsed = this.t0 !== null ? (now - this.t0) : 0;
-
-                this.records.push({
-                    timestamp: ts,
-                    elapsed: elapsed,
-                    flow: flow_yes,
-                    est: est,
-                    low_energy: low_e,
-                    fft: this.last_fft || {}
+                    }, 100);
                 });
-                this.updateRecordCount();
-
-                // -------------------------------------------------
-                // 4. Start plotting logic (from Python)
-                // -------------------------------------------------
-                if (!this.started) {
-                    if (flow_yes && this.prev_flow_yes) {
-                        this.started = true;
-                        this.t0 = now;
-                        if (this.records.length >= 2) {
-                            this.records[this.records.length - 2].elapsed = 0;
-                            this.records[this.records.length - 1].elapsed = 0;
-                            this.times = [0, 0];
-                            this.flows = [
-                                this.records[this.records.length - 2].est,
-                                this.records[this.records.length - 1].est
-                            ];
-                        } else {
-                            this.times = [0];
-                            this.flows = [est];
-                        }
-                        this.statusMsg.textContent = 'Inhalation detected.';
-                        this.prev_flow_yes = flow_yes;
-                        this.redraw();
-                        return;
-                    }
-                    this.prev_flow_yes = flow_yes;
-                    return;
-                }
-
-                this.prev_flow_yes = flow_yes;
-                const t = now - this.t0;
-                this.times.push(t);
-                this.flows.push(est);
-                this.redraw();
             }
 
-            // ---------------- UI Updates (from Python) ----------------
-            updateRecordCount() {
-                this.recordCount.textContent = this.records.length;
-            }
-
-            redraw() {
-                if (!this.chart) return;
-
-                const ds = this.chart.data.datasets;
-                let xs = this.times.slice();
-                let ys = this.flows.slice();
-
-                if (xs.length >= 3) {
-                    const smoothed = smoothCurve(xs, ys);
-                    xs = smoothed.x;
-                    ys = smoothed.y;
-                }
-
-                ds[1].data = xs.map((x, i) => ({ x, y: ys[i] || 0 }));
-
-                if (this.times.length > 0) {
-                    const xmax = Math.max(10, this.times[this.times.length - 1] + 1);
-                    this.chart.options.scales.x.max = xmax;
-                }
-                if (this.flows.length > 0) {
-                    const ymax = Math.max(70, Math.max(...this.flows) * 1.2);
-                    this.chart.options.scales.y.max = ymax;
-                    const peak = Math.max(...this.flows);
-                    this.peakValue.textContent = peak.toFixed(1) + ' L/min';
-                }
-                this.chart.update('none');
-            }
-
-            // ---------------- Controls (from Python) ----------------
-            toggleMeasuring() {
-                this.measuring = !this.measuring;
-                if (this.measuring) {
-                    this.measureBtn.textContent = 'Stop';
-                    this.measureBtn.className = 'danger';
-                    this.statusMsg.textContent = 'Measuring...';
-                } else {
-                    this.measureBtn.textContent = 'Start';
-                    this.measureBtn.className = '';
-                    this.statusMsg.textContent = 'Measurement stopped (waveform frozen).';
+            // ----- 內部 -----
+            _setValue(v) {
+                v = Math.max(0, Math.min(100, Math.round(v)));
+                if (this.value !== v) {
+                    this.value = v;
+                    this.raw = v;
+                    this._notify();
                 }
             }
 
-            clearPlot() {
-                this.t0 = null;
-                this.started = false;
-                this.times = [];
-                this.flows = [];
-                this.window_history = [false, false, false];
-                this.prev_flow_yes = false;
-                this.records = [];
-                this.last_fft = null;
-
-                if (this.chart) {
-                    this.chart.data.datasets[1].data = [];
-                    this.chart.options.scales.x.max = 10;
-                    this.chart.options.scales.y.max = 70;
-                    this.chart.update('none');
-                }
-                this.updateRecordCount();
-                this.peakValue.textContent = '—';
-                this.statusMsg.textContent = 'Cleared.';
+            _notify() {
+                for (const fn of this.listeners) fn(this.value);
             }
 
-            saveData() {
-                if (this.records.length === 0) {
-                    alert('No data to save.\nPlease connect and collect data first.');
-                    return;
-                }
-
-                const patient = this.patientInput.value.trim() || 'unknown';
-                const default_name = patient ? `inhaler_data_${patient}` : 'inhaler_data';
-
-                let csv = 'patient_id,timestamp,elapsed_s,flow,est_flow_Lpm,low_energy,';
-                for (let k = 1; k <= 20; k++) csv += `${k}kHz,`;
-                csv = csv.slice(0, -1) + '\n';
-
-                for (const r of this.records) {
-                    const row = [
-                        patient,
-                        r.timestamp,
-                        r.elapsed.toFixed(2),
-                        r.flow ? 'YES' : 'no',
-                        r.est.toFixed(1),
-                        r.low_energy
-                    ];
-                    for (let k = 1; k <= 20; k++) {
-                        row.push(r.fft[k] !== undefined ? r.fft[k] : '');
-                    }
-                    csv += row.join(',') + '\n';
-                }
-
-                const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8-sig' });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = `${default_name}.csv`;
-                link.click();
-
-                this.statusMsg.textContent = `Saved: ${default_name}.csv (${this.records.length} records)`;
+            onValue(cb) {
+                this.listeners.push(cb);
+                return () => { this.listeners = this.listeners.filter(f => f !== cb); };
             }
 
-            // ---------------- Event Binding ----------------
-            bindEvents() {
-                this.refreshBtn.addEventListener('click', () => this.refreshPorts());
-                this.connectBtn.addEventListener('click', () => this.toggleConnection());
-                this.measureBtn.addEventListener('click', () => this.toggleMeasuring());
-                this.clearBtn.addEventListener('click', () => this.clearPlot());
-                this.saveBtn.addEventListener('click', () => this.saveData());
+            getValue() { return this.value; }
+
+            // 切換模式
+            setMode(mode) {
+                this.stopSimulate();
+                this.stopKeyboard();
+                this.disconnectSerial();
+                this.mode = mode;
+                if (mode === 'simulate') this.startSimulate();
+                else if (mode === 'keyboard') this.startKeyboard();
+                return this;
+            }
+
+            destroy() {
+                this.stopSimulate();
+                this.stopKeyboard();
+                this.disconnectSerial();
+                this.listeners = [];
             }
         }
 
-        // =====================================================
-        //  Main
-        // =====================================================
-        document.addEventListener('DOMContentLoaded', () => {
-            new FlowMonitorApp();
-        });
+        // ============================================================
+        //  3. 後端 Logger (API 呼叫)
+        // ============================================================
+        class Logger {
+            static async log(event, data = {}) {
+                try {
+                    const res = await fetch('/api/logs', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            timestamp: new Date().toISOString(),
+                            event,
+                            ...data,
+                            userAgent: navigator.userAgent
+                        })
+                    });
+                    return res.ok;
+                } catch (_) { return false; }
+            }
+
+            static async gameEvent(gameId, action, payload = {}) {
+                return this.log('game_event', { gameId, action, ...payload });
+            }
+
+            static async scoreUpdate(gameId, score, combo) {
+                return this.log('score_update', { gameId, score, combo });
+            }
+
+            static async restTriggered(gameId) {
+                return this.log('rest_triggered', { gameId });
+            }
+
+            static async gameComplete(gameId, score, lives) {
+                return this.log('game_complete', { gameId, score, lives });
+            }
+        }
+
+        // ============================================================
+        //  4. 遊戲引擎基底
+        // ============================================================
+        class GameBase {
+            constructor(container, breathController, gameId) {
+                this.container = container;
+                this.breath = breathController;
+                this.gameId = gameId;
+                this.canvas = null;
+                this.ctx = null;
+                this.width = 0;
+                this.height = 0;
+                this.lives = 5;
+                this.maxLives = 5;
+                this.score = 0;
+                this.combo = 0;
+                this.level = 1;
+                this.maxLevel = 5;
+                this.isPlaying = false;
+                this.isPaused = false;
+                this.isResting = false;
+                this.restTimer = 0;
+                this.restDuration = 15; // 秒
+                this.restCooldown = 60; // 秒
+                this.restCooldownCounter = 0;
+                this.successCount = 0;
+                this.successThreshold = 3; // 每關成功次數
+                this.totalSuccesses = 0;
+                this.failCount = 0;
+                this.failThreshold = 5;
+                this.frameId = null;
+                this._unsubBreath = null;
+                this._lastBreath = 50;
+                this._restCallback = null;
+                this._onComplete = null;
+                // 子類可覆寫
+                this.gameTitle = GAME_META[gameId]?.label || gameId;
+                this.breathValue = 50;
+                // HUD 元素
+                this.hudElements = {};
+                // 休息狀態
+                this.restPhase = 'inhale'; // inhale | hold | exhale
+                this.restPhaseTimer = 0;
+                this.restTotalTime = 0;
+                // 綁定動畫
+                this._loop = this._loop.bind(this);
+            }
+
+            // ----- 初始化 -----
+            init(width, height) {
+                this.width = width;
+                this.height = height;
+                // 建立 Canvas
+                this.canvas = document.createElement('canvas');
+                this.canvas.width = width;
+                this.canvas.height = height;
+                this.canvas.style.display = 'block';
+                this.canvas.style.width = '100%';
+                this.canvas.style.height = '100%';
+                this.container.prepend(this.canvas);
+                this.ctx = this.canvas.getContext('2d');
+                // 監聽呼吸
+                this._unsubBreath = this.breath.onValue((v) => {
+                    this.breathValue = v;
+                    this._lastBreath = v;
+                    this.onBreath(v);
+                });
+                // 初始化子類
+                this.onInit();
+                return this;
+            }
+
+            // ----- 生命週期 -----
+            start() {
+                if (this.isPlaying) return;
+                this.isPlaying = true;
+                this.isPaused = false;
+                this.onStart();
+                this._loop();
+                Logger.gameEvent(this.gameId, 'start', { level: this.level });
+                return this;
+            }
+
+            pause() {
+                this.isPaused = true;
+                if (this.frameId) {
+                    cancelAnimationFrame(this.frameId);
+                    this.frameId = null;
+                }
+                return this;
+            }
+
+            resume() {
+                if (!this.isPaused) return;
+                this.isPaused = false;
+                this._loop();
+                return this;
+            }
+
+            stop() {
+                this.isPlaying = false;
+                if (this.frameId) {
+                    cancelAnimationFrame(this.frameId);
+                    this.frameId = null;
+                }
+                if (this._unsubBreath) {
+                    this._unsubBreath();
+                    this._unsubBreath = null;
+                }
+                this.onStop();
+                return this;
+            }
+
+            destroy() {
+                this.stop();
+                if (this.canvas && this.canvas.parentNode) {
+                    this.canvas.parentNode.removeChild(this.canvas);
+                }
+                this.onDestroy();
+            }
+
+            // ----- 動畫迴圈 -----
+            _loop(timestamp) {
+                if (!this.isPlaying || this.isPaused) return;
+                this.frameId = requestAnimationFrame(this._loop);
+                const dt = 1 / 60; // 固定 delta
+
+                // 檢查休息
+                this._updateRest(dt);
+
+                // 更新遊戲
+                if (!this.isResting) {
+                    this.update(dt);
+                }
+                // 繪製
+                this.draw();
+            }
+
+            // ----- 休息機制 -----
+            _updateRest(dt) {
+                // 累積冷卻
+                if (!this.isResting) {
+                    this.restCooldownCounter += dt;
+                    // 每完成 3 次成功 或 每 60 秒觸發
+                    const shouldRest = this.restCooldownCounter >= this.restCooldown ||
+                        (this.successCount > 0 && this.successCount % 3 === 0);
+                    if (shouldRest && this.isPlaying && !this.isPaused) {
+                        this._triggerRest();
+                    }
+                    return;
+                }
+
+                // 休息中
+                this.restTotalTime += dt;
+                this.restPhaseTimer += dt;
+
+                // 引導循環: 吸氣 4s → 屏息 2s → 吐氣 4s
+                const cycleDuration = 10;
+                const phase = this.restTotalTime % cycleDuration;
+                if (phase < 4) {
+                    this.restPhase = 'inhale';
+                } else if (phase < 6) {
+                    this.restPhase = 'hold';
+                } else {
+                    this.restPhase = 'exhale';
+                }
+
+                // 休息結束
+                if (this.restTotalTime >= this.restDuration) {
+                    this._endRest();
+                }
+            }
+
+            _triggerRest() {
+                if (this.isResting) return;
+                this.isResting = true;
+                this.restTotalTime = 0;
+                this.restPhase = 'inhale';
+                this.restPhaseTimer = 0;
+                this.restCooldownCounter = 0;
+                this.pause();
+                Logger.restTriggered(this.gameId);
+                if (this._restCallback) this._restCallback(true);
+                // 顯示休息UI (由外部處理)
+                this.onRestStart();
+            }
+
+            _endRest() {
+                this.isResting = false;
+                this.restTotalTime = 0;
+                this.restPhase = 'inhale';
+                this.resume();
+                if (this._restCallback) this._restCallback(false);
+                this.onRestEnd();
+            }
+
+            // ----- 子類覆寫 -----
+            onInit() {}
+            onStart() {}
+            onStop() {}
+            onDestroy() {}
+            onBreath(v) {}
+            update(dt) {}
+            draw() {}
+            onRestStart() {}
+            onRestEnd() {}
+
+            // ----- 輔助方法 -----
+            addScore(pts) {
+                this.score += pts;
+                Logger.scoreUpdate(this.gameId, this.score, this.combo);
+                this.onScoreChange();
+            }
+
+            addCombo() {
+                this.combo++;
+                if (this.combo >= 5) {
+                    // 額外倍率
+                    this.addScore(5);
+                }
+                this.onComboChange();
+            }
+
+            resetCombo() {
+                this.combo = 0;
+                this.onComboChange();
+            }
+
+            loseLife() {
+                this.lives--;
+                if (this.lives <= 0) {
+                    this.lives = 0;
+                    this.gameOver();
+                }
+                this.onLifeChange();
+                return this.lives;
+            }
+
+            addLife() {
+                if (this.lives < this.maxLives) {
+                    this.lives++;
+                    this.onLifeChange();
+                }
+                return this.lives;
+            }
+
+            gameOver() {
+                this.isPlaying = false;
+                Logger.gameComplete(this.gameId, this.score, this.lives);
+                this.onGameOver();
+            }
+
+            levelComplete() {
+                if (this.level >= this.maxLevel) {
+                    // 全部通關
+                    this.allComplete();
+                    return;
+                }
+                this.level++;
+                this.successCount = 0;
+                this.onLevelUp();
+                Logger.gameEvent(this.gameId, 'level_up', { level: this.level });
+            }
+
+            allComplete() {
+                this.isPlaying = false;
+                Logger.gameComplete(this.gameId, this.score, this.lives);
+                this.onAllComplete();
+            }
+
+            // ----- 回調掛鉤 (外部可設置) -----
+            onScoreChange() {}
+            onComboChange() {}
+            onLifeChange() {}
+            onGameOver() {}
+            onLevelUp() {}
+            onAllComplete() {}
+            setRestCallback(fn) { this._restCallback = fn; }
+
+            // ----- 取得 HUD 數據 -----
+            getHUDData() {
+                return {
+                    title: this.gameTitle,
+                    level: this.level,
+                    maxLevel: this.maxLevel,
+                    score: this.score,
+                    combo: this.combo,
+                    lives: this.lives,
+                    maxLives: this.maxLives,
+                    breath: this.breathValue,
+                    isResting: this.isResting,
+                    restPhase: this.restPhase,
+                    restTotal: this.restTotalTime,
+                    restDuration: this.restDuration,
+                };
+            }
+
+            // ----- 工具: 繪製圓角矩形 -----
+            roundRect(ctx, x, y, w, h, r) {
+                ctx.beginPath();
+                ctx.moveTo(x + r, y);
+                ctx.lineTo(x + w - r, y);
+                ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+                ctx.lineTo(x + w, y + h - r);
+                ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+                ctx.lineTo(x + r, y + h);
+                ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+                ctx.lineTo(x, y + r);
+                ctx.quadraticCurveTo(x, y, x + r, y);
+                ctx.closePath();
+            }
+        }
+
+        // ============================================================
+        //  5. 五款遊戲實作
+        // ============================================================
+
+        // ---------- 5.1 風之繪師 ----------
+        class WindPainterGame extends GameBase {
+            constructor(container, breath) {
+                super(container, breath, GAMES.WIND_PAINTER);
+                this.shapes = [
+                    // 每關一個形狀陣列 (簡化為 SVG path 風格)
+                    { name: '圓', points: this._genCircle(0.4) },
+                    { name: '葉', points: this._genLeaf() },
+                    { name: '雲', points: this._genCloud() },
+                    { name: '蝶', points: this._genButterfly() },
+                    { name: '花+葉', points: this._genFlowerLeaf() }
+                ];
+                this.currentShape = null;
+                this.shapePoints = [];
+                this.shapeBounds = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+                this.paintedPixels = new Set();
+                this.totalPixels = 0;
+                this.completedPixels = 0;
+                this.penX = 0;
+                this.penY = 0;
+                this.penDown = false;
+                this.strokeCount = 0;
+                this.strokesPerPainting = 3;
+                this.paintingsDone = 0;
+                this.paintingsTarget = 5;
+                this.mistakes = 0;
+                this.maxMistakes = 5;
+                this.brushSize = 4;
+                this.brushOpacity = 0.6;
+                this.hue = 200;
+                this.targetShape = null;
+                this.showGuide = true;
+                this.particles = [];
+                this.isDrawing = false;
+                this.lastBreathVal = 50;
+                // 道具
+                this.hasFineBrush = false;
+                this.hasPalette = false;
+                this.itemTimer = 0;
+            }
+
+            onInit() {
+                this.currentShape = this.shapes[0];
+                this._loadShape(0);
+                this.penX = this.width / 2;
+                this.penY = this.height / 2;
+                this.penDown = false;
+            }
+
+            _loadShape(index) {
+                const pts = this.shapes[index % this.shapes.length].points;
+                this.shapePoints = pts;
+                // 計算邊界
+                let minX = Infinity,
+                    maxX = -Infinity,
+                    minY = Infinity,
+                    maxY = -Infinity;
+                for (const p of pts) {
+                    if (p.x < minX) minX = p.x;
+                    if (p.x > maxX) maxX = p.x;
+                    if (p.y < minY) minY = p.y;
+                    if (p.y > maxY) maxY = p.y;
+                }
+                const pad = 30;
+                this.shapeBounds = {
+                    minX: minX - pad,
+                    maxX: maxX + pad,
+                    minY: minY - pad,
+                    maxY: maxY + pad
+                };
+                this.totalPixels = pts.length;
+                this.completedPixels = 0;
+                this.paintedPixels = new Set();
+                this.strokeCount = 0;
+                this.mistakes = 0;
+                this.penDown = false;
+                // 設定目標形狀 (用於渲染)
+                this.targetShape = pts;
+            }
+
+            // 生成形狀點 (簡化)
+            _genCircle(radius) {
+                const pts = [];
+                const cx = this.width / 2,
+                    cy = this.height / 2;
+                const r = Math.min(this.width, this.height) * 0.3 * radius;
+                for (let i = 0; i < 180; i++) {
+                    const a = (i / 180) * Math.PI * 2;
+                    pts.push({ x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) });
+                }
+                return pts;
+            }
+            _genLeaf() {
+                const pts = [];
+                const cx = this.width / 2,
+                    cy = this.height / 2;
+                for (let i = 0; i < 120; i++) {
+                    const t = (i / 120) * Math.PI * 2;
+                    const r = Math.min(this.width, this.height) * 0.25 * (0.6 + 0.4 * Math.sin(t * 2 + 1.2));
+                    pts.push({ x: cx + r * Math.cos(t), y: cy + r * Math.sin(t) * 1.5 });
+                }
+                return pts;
+            }
+            _genCloud() {
+                const pts = [];
+                const cx = this.width / 2,
+                    cy = this.height / 2;
+                const base = Math.min(this.width, this.height) * 0.2;
+                for (let i = 0; i < 150; i++) {
+                    const t = (i / 150) * Math.PI * 2;
+                    const r = base * (0.7 + 0.3 * Math.sin(t * 3 + 0.5) + 0.2 * Math.sin(t * 5 + 2.1));
+                    pts.push({ x: cx + r * Math.cos(t) * 1.1, y: cy + r * Math.sin(t) * 0.7 });
+                }
+                return pts;
+            }
+            _genButterfly() {
+                const pts = [];
+                const cx = this.width / 2,
+                    cy = this.height / 2;
+                const base = Math.min(this.width, this.height) * 0.2;
+                for (let i = 0; i < 200; i++) {
+                    const t = (i / 200) * Math.PI * 2;
+                    const r = base * (0.8 + 0.5 * Math.sin(t * 2 + 0.3) + 0.3 * Math.sin(t * 4 + 1.7));
+                    const x = cx + r * Math.cos(t) * 1.3;
+                    const y = cy + r * Math.sin(t) * 0.9 + 15 * Math.sin(t * 2);
+                    pts.push({ x, y });
+                }
+                return pts;
+            }
+            _genFlowerLeaf() {
+                const pts = [];
+                const cx = this.width / 2,
+                    cy = this.height / 2;
+                const base = Math.min(this.width, this.height) * 0.18;
+                // 花朵 + 葉子 組合
+                for (let i = 0; i < 120; i++) {
+                    const t = (i / 120) * Math.PI * 2;
+                    const r = base * (0.9 + 0.4 * Math.sin(t * 5 + 0.2));
+                    pts.push({ x: cx + r * Math.cos(t) * 1.2, y: cy + r * Math.sin(t) * 1.1 });
+                }
+                for (let i = 0; i < 80; i++) {
+                    const t = (i / 80) * Math.PI * 2 + 0.5;
+                    const r = base * 0.7 * (0.8 + 0.2 * Math.sin(t * 2 + 1.0));
+                    pts.push({ x: cx + 60 + r * Math.cos(t) * 1.0, y: cy + 40 + r * Math.sin(t) * 0.6 });
+                }
+                return pts;
+            }
+
+            onBreath(v) {
+                // 呼吸強度 → 筆觸粗細 & 濃淡
+                this.brushSize = 2 + (v / 100) * 18;
+                this.brushOpacity = 0.3 + (v / 100) * 0.7;
+                this.hue = 200 + (v / 100) * 60;
+                // 繪畫時移動筆尖
+                if (this.isPlaying && !this.isResting) {
+                    // 用呼吸控制筆尖左右移動 (模擬)
+                    const targetX = this.penX + (v - this.lastBreathVal) * 1.2;
+                    const targetY = this.penY + (v - this.lastBreathVal) * 0.8;
+                    this.penX = Math.max(0, Math.min(this.width, targetX));
+                    this.penY = Math.max(0, Math.min(this.height, targetY));
+                    this.lastBreathVal = v;
+                    // 繪畫
+                    if (this.penDown) {
+                        this._paintAt(this.penX, this.penY);
+                    }
+                }
+            }
+
+            _paintAt(x, y) {
+                const idx = Math.round(x) + ',' + Math.round(y);
+                if (this.paintedPixels.has(idx)) return;
+                // 檢查是否在目標形狀內
+                const inside = this._isInsideShape(x, y);
+                if (inside) {
+                    this.paintedPixels.add(idx);
+                    this.completedPixels++;
+                    // 粒子特效
+                    this._spawnParticles(x, y, '#4ade80');
+                    // 檢查是否完成一筆 (30% 面積)
+                    const progress = this.completedPixels / this.totalPixels;
+                    if (progress >= 0.3 && this.strokeCount < this.strokesPerPainting) {
+                        this.strokeCount++;
+                        this.addCombo();
+                        this.addScore(15);
+                        this.successCount++;
+                        Logger.gameEvent(this.gameId, 'stroke_complete', { stroke: this.strokeCount });
+                        // 重置進度
+                        this.completedPixels = 0;
+                        this.paintedPixels = new Set();
+                        // 粒子噴濺
+                        for (let i = 0; i < 30; i++) {
+                            this._spawnParticles(
+                                x + (Math.random() - 0.5) * 60,
+                                y + (Math.random() - 0.5) * 60,
+                                ['#facc15', '#f87171', '#60a5fa', '#a78bfa'][Math.floor(Math.random() * 4)]
+                            );
+                        }
+                        if (this.strokeCount >= this.strokesPerPainting) {
+                            // 完成一幅畫
+                            this.paintingsDone++;
+                            this.strokeCount = 0;
+                            this.addScore(30);
+                            if (this.paintingsDone >= this.paintingsTarget) {
+                                this.levelComplete();
+                            } else {
+                                // 換形狀
+                                const nextIdx = (this.paintingsDone) % this.shapes.length;
+                                this._loadShape(nextIdx);
+                            }
+                            Logger.gameEvent(this.gameId, 'painting_complete', { paintings: this.paintingsDone });
+                        }
+                    }
+                } else {
+                    // 失誤
+                    this.mistakes++;
+                    this._spawnParticles(x, y, '#ef4444');
+                    if (this.mistakes >= this.maxMistakes) {
+                        this.mistakes = 0;
+                        this.loseLife();
+                        this.resetCombo();
+                    }
+                }
+            }
+
+            _isInsideShape(x, y) {
+                // 使用 ray casting 檢測點是否在多邊形內
+                const pts = this.shapePoints;
+                let inside = false;
+                for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+                    const xi = pts[i].x,
+                        yi = pts[i].y;
+                    const xj = pts[j].x,
+                        yj = pts[j].y;
+                    const intersect = ((yi > y) !== (yj > y)) &&
+                        (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                    if (intersect) inside = !inside;
+                }
+                return inside;
+            }
+
+            _spawnParticles(x, y, color) {
+                for (let i = 0; i < 6; i++) {
+                    this.particles.push({
+                        x,
+                        y,
+                        vx: (Math.random() - 0.5) * 6,
+                        vy: (Math.random() - 0.5) * 6 - 2,
+                        life: 1,
+                        decay: 0.02 + Math.random() * 0.02,
+                        size: 2 + Math.random() * 4,
+                        color
+                    });
+                }
+            }
+
+            update(dt) {
+                // 更新粒子
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    const p = this.particles[i];
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.05;
+                    p.life -= p.decay;
+                    if (p.life <= 0) this.particles.splice(i, 1);
+                }
+                // 道具掉落 (簡化)
+                this.itemTimer += dt;
+                if (this.itemTimer > 10) {
+                    this.itemTimer = 0;
+                    // 隨機給道具
+                    if (Math.random() > 0.5) {
+                        this.hasFineBrush = true;
+                        setTimeout(() => { this.hasFineBrush = false; }, 5000);
+                    } else {
+                        this.hasPalette = true;
+                        setTimeout(() => { this.hasPalette = false; }, 5000);
+                    }
+                }
+                // 鍵盤操作: 點擊畫筆 (空白鍵)
+                // 由外部處理
+            }
+
+            draw() {
+                const ctx = this.ctx;
+                const W = this.width,
+                    H = this.height;
+                ctx.clearRect(0, 0, W, H);
+
+                // 背景 - 水彩紙紋理
+                ctx.fillStyle = '#f5efe8';
+                ctx.fillRect(0, 0, W, H);
+                // 紋理
+                for (let i = 0; i < 300; i++) {
+                    ctx.fillStyle = `rgba(200,185,170,${0.03 + Math.random() * 0.05})`;
+                    ctx.fillRect(Math.random() * W, Math.random() * H, 2 + Math.random() * 4, 1 + Math.random() * 2);
+                }
+
+                // 目標形狀 (發光引導)
+                if (this.targetShape && this.showGuide) {
+                    ctx.save();
+                    ctx.shadowColor = 'rgba(250,204,21,0.2)';
+                    ctx.shadowBlur = 30;
+                    ctx.beginPath();
+                    const pts = this.targetShape;
+                    ctx.moveTo(pts[0].x, pts[0].y);
+                    for (let i = 1; i < pts.length; i++) {
+                        ctx.lineTo(pts[i].x, pts[i].y);
+                    }
+                    ctx.closePath();
+                    ctx.strokeStyle = 'rgba(250,204,21,0.25)';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([6, 8]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    ctx.restore();
+                }
+
+                // 已繪製的筆觸
+                if (this.paintedPixels.size > 0) {
+                    ctx.save();
+                    for (const key of this.paintedPixels) {
+                        const [x, y] = key.split(',').map(Number);
+                        ctx.fillStyle = `hsla(${this.hue}, 70%, 60%, ${this.brushOpacity * 0.7})`;
+                        ctx.beginPath();
+                        ctx.arc(x, y, this.brushSize * 0.5, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    ctx.restore();
+                }
+
+                // 當前畫筆
+                ctx.save();
+                const grad = ctx.createRadialGradient(
+                    this.penX, this.penY, 0,
+                    this.penX, this.penY, this.brushSize
+                );
+                const alpha = this.penDown ? this.brushOpacity : 0.3;
+                grad.addColorStop(0, `hsla(${this.hue}, 80%, 70%, ${alpha})`);
+                grad.addColorStop(1, `hsla(${this.hue + 20}, 70%, 50%, ${alpha * 0.4})`);
+                ctx.shadowColor = `hsla(${this.hue}, 80%, 60%, 0.3)`;
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(this.penX, this.penY, this.brushSize, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+
+                // 粒子
+                for (const p of this.particles) {
+                    ctx.globalAlpha = p.life;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+
+                // 進度文字
+                ctx.fillStyle = '#4a3f3a';
+                ctx.font = '13px sans-serif';
+                ctx.fillText(`🎨 畫作 ${this.paintingsDone}/${this.paintingsTarget}  筆觸 ${this.strokeCount}/${this.strokesPerPainting}`, 20,
+                    30);
+                if (this.hasFineBrush) {
+                    ctx.fillStyle = '#facc15';
+                    ctx.fillText('🖌️ 細筆 (失誤-1)', 20, 52);
+                }
+                if (this.hasPalette) {
+                    ctx.fillStyle = '#a78bfa';
+                    ctx.fillText('🎨 調色盤', 20, 74);
+                }
+            }
+
+            onRestStart() {
+                // 暫停繪畫
+                this.penDown = false;
+            }
+            onRestEnd() {
+                this.penDown = true;
+            }
+
+            // 外部可呼叫: 切換畫筆開關
+            togglePen() {
+                this.penDown = !this.penDown;
+                if (this.penDown) {
+                    this.lastBreathVal = this.breathValue;
+                }
+                return this.penDown;
+            }
+        }
+
+        // ---------- 5.2 燭光遠征 ----------
+        class CandleExpeditionGame extends GameBase {
+            constructor(container, breath) {
+                super(container, breath, GAMES.CANDLE_EXPEDITION);
+                this.maze = [];
+                this.mazeSize = 15;
+                this.cellSize = 0;
+                this.playerX = 1;
+                this.playerY = 1;
+                this.exitX = 13;
+                this.exitY = 13;
+                this.lightRadius = 80;
+                this.fuel = 100;
+                this.maxFuel = 100;
+                this.fuelConsumption = 0.3;
+                this.gems = 0;
+                this.gemsTarget = 3;
+                this.mazeOffsetX = 0;
+                this.mazeOffsetY = 0;
+                this.explored = new Set();
+                this.fogOfWar = true;
+                this.hasCompass = false;
+                this.compassTimer = 0;
+                this.trail = [];
+                this.mazeGenerated = false;
+                this.moveCooldown = 0;
+                this.keys = { up: false, down: false, left: false, right: false };
+                this._boundKey = this._handleKey.bind(this);
+                this.wallTexture = null;
+            }
+
+            onInit() {
+                this._generateMaze(this.mazeSize);
+                this.cellSize = Math.min(this.width, this.height) / (this.mazeSize + 2);
+                this.mazeOffsetX = (this.width - this.cellSize * this.mazeSize) / 2;
+                this.mazeOffsetY = (this.height - this.cellSize * this.mazeSize) / 2;
+                this.playerX = 1;
+                this.playerY = 1;
+                this.exitX = this.mazeSize - 2;
+                this.exitY = this.mazeSize - 2;
+                this.fuel = 100;
+                this.gems = 0;
+                this.explored = new Set();
+                this.trail = [];
+                this.hasCompass = false;
+                this.compassTimer = 0;
+                document.addEventListener('keydown', this._boundKey);
+                document.addEventListener('keyup', this._boundKey);
+            }
+
+            _generateMaze(size) {
+                // 簡易 DFS 迷宮
+                const grid = Array.from({ length: size }, () => Array(size).fill(1));
+                const stack = [];
+                const startX = 1,
+                    startY = 1;
+                grid[startY][startX] = 0;
+                stack.push([startX, startY]);
+                const dirs = [
+                    [0, -2],
+                    [0, 2],
+                    [-2, 0],
+                    [2, 0]
+                ];
+                while (stack.length) {
+                    const [cx, cy] = stack[stack.length - 1];
+                    const neighbors = [];
+                    for (const [dx, dy] of dirs) {
+                        const nx = cx + dx,
+                            ny = cy + dy;
+                        if (nx > 0 && nx < size - 1 && ny > 0 && ny < size - 1 && grid[ny][nx] === 1) {
+                            neighbors.push([nx, ny, dx, dy]);
+                        }
+                    }
+                    if (neighbors.length) {
+                        const [nx, ny, dx, dy] = neighbors[Math.floor(Math.random() * neighbors.length)];
+                        grid[cy + dy / 2][cx + dx / 2] = 0;
+                        grid[ny][nx] = 0;
+                        stack.push([nx, ny]);
+                    } else {
+                        stack.pop();
+                    }
+                }
+                // 確保出口通
+                grid[this.exitY][this.exitX] = 0;
+                grid[this.exitY - 1][this.exitX] = 0;
+                grid[this.exitY][this.exitX - 1] = 0;
+                this.maze = grid;
+                this.mazeGenerated = true;
+            }
+
+            onBreath(v) {
+                // 呼吸強度 → 燭光半徑
+                this.lightRadius = 40 + (v / 100) * 120;
+                // 燃料消耗: 呼吸越強消耗越快
+                if (this.isPlaying && !this.isResting) {
+                    const consumption = 0.15 + (v / 100) * 0.6;
+                    this.fuel -= consumption * 0.05;
+                    if (this.fuel <= 0) {
+                        this.fuel = 0;
+                        this.loseLife();
+                        // 重置燃料
+                        this.fuel = 80;
+                        this.playerX = 1;
+                        this.playerY = 1;
+                        this.explored = new Set();
+                        this.resetCombo();
+                    }
+                }
+            }
+
+            _handleKey(e) {
+                const key = e.key;
+                if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) {
+                    e.preventDefault();
+                    this.keys[key.replace('arrow', '').toLowerCase()] = e.type === 'keydown';
+                }
+            }
+
+            update(dt) {
+                this.moveCooldown -= dt;
+                if (this.moveCooldown > 0) return;
+
+                // 移動
+                let dx = 0,
+                    dy = 0;
+                if (this.keys.up) dy = -1;
+                else if (this.keys.down) dy = 1;
+                else if (this.keys.left) dx = -1;
+                else if (this.keys.right) dx = 1;
+
+                if (dx !== 0 || dy !== 0) {
+                    this.moveCooldown = 0.12;
+                    const nx = this.playerX + dx;
+                    const ny = this.playerY + dy;
+                    if (nx >= 0 && nx < this.mazeSize && ny >= 0 && ny < this.mazeSize &&
+                        this.maze[ny][nx] === 0) {
+                        this.playerX = nx;
+                        this.playerY = ny;
+                        this.trail.push({ x: nx, y: ny });
+                        if (this.trail.length > 30) this.trail.shift();
+                        // 探索
+                        this.explored.add(`${nx},${ny}`);
+                        // 檢查出口
+                        if (nx === this.exitX && ny === this.exitY) {
+                            this.gems++;
+                            this.addScore(25);
+                            this.addCombo();
+                            this.successCount++;
+                            Logger.gameEvent(this.gameId, 'gem_collected', { gems: this.gems });
+                            if (this.gems >= this.gemsTarget) {
+                                this.levelComplete();
+                            } else {
+                                // 重置位置
+                                this.playerX = 1;
+                                this.playerY = 1;
+                                this.fuel = Math.min(this.maxFuel, this.fuel + 30);
+                                this.explored = new Set();
+                                this.explored.add('1,1');
+                            }
+                        }
+                        // 隨機道具
+                        if (Math.random() < 0.01) {
+                            this.hasCompass = true;
+                            this.compassTimer = 5;
+                        }
+                    } else {
+                        // 撞牆
+                        if (this.maze[ny] && this.maze[ny][nx] === 1) {
+                            this.loseLife();
+                            this.resetCombo();
+                            this.playerX = 1;
+                            this.playerY = 1;
+                            this.explored = new Set();
+                            this.explored.add('1,1');
+                            this.fuel = Math.min(this.maxFuel, this.fuel + 20);
+                        }
+                    }
+                }
+
+                // 指南針計時
+                if (this.hasCompass) {
+                    this.compassTimer -= dt;
+                    if (this.compassTimer <= 0) this.hasCompass = false;
+                }
+
+                // 燃料自動微降
+                this.fuel -= 0.02;
+                if (this.fuel <= 0) {
+                    this.fuel = 0;
+                    this.loseLife();
+                    this.fuel = 80;
+                    this.playerX = 1;
+                    this.playerY = 1;
+                    this.explored = new Set();
+                    this.explored.add('1,1');
+                    this.resetCombo();
+                }
+            }
+
+            draw() {
+                const ctx = this.ctx;
+                const W = this.width,
+                    H = this.height;
+                ctx.clearRect(0, 0, W, H);
+
+                // 背景 - 黑暗
+                ctx.fillStyle = '#0a0808';
+                ctx.fillRect(0, 0, W, H);
+
+                const cs = this.cellSize;
+                const ox = this.mazeOffsetX;
+                const oy = this.mazeOffsetY;
+
+                // 繪製迷宮 (只繪製探索過的區域 + 燭光範圍)
+                const px = this.playerX,
+                    py = this.playerY;
+                const viewRadius = Math.ceil(this.lightRadius / cs) + 2;
+
+                ctx.save();
+                // 先繪製所有牆壁 (黑暗)
+                for (let y = 0; y < this.mazeSize; y++) {
+                    for (let x = 0; x < this.mazeSize; x++) {
+                        const dist = Math.sqrt((x - px) ** 2 + (y - py) ** 2);
+                        const isLit = dist < viewRadius || this.explored.has(`${x},${y}`);
+                        if (isLit) {
+                            const cx = ox + x * cs,
+                                cy = oy + y * cs;
+                            if (this.maze[y][x] === 1) {
+                                // 牆壁紋理
+                                ctx.fillStyle = '#3a2f2a';
+                                ctx.fillRect(cx, cy, cs, cs);
+                                ctx.fillStyle = '#4a3f3a';
+                                ctx.fillRect(cx + 2, cy + 2, cs - 4, cs - 4);
+                                // 磚紋
+                                ctx.strokeStyle = '#2a1f1a';
+                                ctx.lineWidth = 0.5;
+                                ctx.strokeRect(cx + 4, cy + 4, cs - 8, cs - 8);
+                            } else {
+                                ctx.fillStyle = '#1a1512';
+                                ctx.fillRect(cx, cy, cs, cs);
+                            }
+                        }
+                    }
+                }
+
+                // 繪製出口標記 (發光)
+                const ex = ox + this.exitX * cs,
+                    ey = oy + this.exitY * cs;
+                const exitDist = Math.sqrt((this.exitX - px) ** 2 + (this.exitY - py) ** 2);
+                if (exitDist < viewRadius || this.explored.has(`${this.exitX},${this.exitY}`)) {
+                    ctx.save();
+                    ctx.shadowColor = 'rgba(250,204,21,0.4)';
+                    ctx.shadowBlur = 30;
+                    ctx.fillStyle = 'rgba(250,204,21,0.3)';
+                    ctx.beginPath();
+                    ctx.arc(ex + cs / 2, ey + cs / 2, cs * 0.4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#facc15';
+                    ctx.font = `${cs * 0.6}px serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('🚪', ex + cs / 2, ey + cs / 2 + 2);
+                    ctx.restore();
+                }
+
+                // 燭光遮罩 (圓形光照)
+                const cx = ox + px * cs + cs / 2;
+                const cy = oy + py * cs + cs / 2;
+                const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, this.lightRadius);
+                grad.addColorStop(0, 'rgba(255,200,150,0.0)');
+                grad.addColorStop(0.6, 'rgba(255,150,80,0.02)');
+                grad.addColorStop(1, 'rgba(0,0,0,0.85)');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, W, H);
+
+                // 燭火本身
+                const flameSize = 8 + (this.breathValue / 100) * 20;
+                ctx.save();
+                ctx.shadowColor = 'rgba(255,180,50,0.6)';
+                ctx.shadowBlur = 60;
+                const grad2 = ctx.createRadialGradient(cx, cy - 4, 0, cx, cy - 4, flameSize);
+                grad2.addColorStop(0, 'rgba(255,230,200,1)');
+                grad2.addColorStop(0.3, 'rgba(255,200,100,0.9)');
+                grad2.addColorStop(0.7, 'rgba(255,120,40,0.6)');
+                grad2.addColorStop(1, 'rgba(255,80,20,0)');
+                ctx.fillStyle = grad2;
+                ctx.beginPath();
+                ctx.arc(cx, cy - 4, flameSize, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+
+                // 燃料條 (在HUD中顯示)
+                ctx.restore();
+
+                // 指南針
+                if (this.hasCompass) {
+                    ctx.save();
+                    ctx.fillStyle = 'rgba(255,215,0,0.9)';
+                    ctx.font = '18px sans-serif';
+                    ctx.textAlign = 'right';
+                    const angle = Math.atan2(this.exitY - py, this.exitX - px);
+                    const dirX = Math.cos(angle),
+                        dirY = Math.sin(angle);
+                    ctx.fillText('🧭', W - 30, 30);
+                    ctx.strokeStyle = 'rgba(255,215,0,0.3)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(cx, cy);
+                    ctx.lineTo(cx + dirX * 60, cy + dirY * 60);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                // HUD 額外資訊: 燃料
+                ctx.fillStyle = 'rgba(255,200,150,0.8)';
+                ctx.font = '12px sans-serif';
+                ctx.fillText(`🪔 ${Math.round(this.fuel)}%`, 20, 30);
+                ctx.fillText(`💎 ${this.gems}/${this.gemsTarget}`, 20, 50);
+            }
+
+            onRestStart() {
+                // 暫停移動
+                this.keys = { up: false, down: false, left: false, right: false };
+            }
+            onRestEnd() {}
+
+            onDestroy() {
+                document.removeEventListener('keydown', this._boundKey);
+                document.removeEventListener('keyup', this._boundKey);
+            }
+
+            onGameOver() {
+                this.keys = { up: false, down: false, left: false, right: false };
+            }
+        }
+
+        // ---------- 5.3 魔導士破魔 ----------
+        class MageBreakerGame extends GameBase {
+            constructor(container, breath) {
+                super(container, breath, GAMES.MAGE_BREAKER);
+                this.charge = 0;
+                this.maxCharge = 100;
+                this.chargeSpeed = 0.5;
+                this.enemies = [];
+                this.wave = 0;
+                this.maxWaves = 3;
+                this.enemiesPerWave = 4;
+                this.enemiesSpawned = 0;
+                this.spawnCooldown = 0;
+                this.waveDelay = 0;
+                this.isWaveActive = false;
+                this.magicParticles = [];
+                this.circleRadius = 80;
+                this.circleX = 0;
+                this.circleY = 0;
+                this.spellCooldown = 0;
+                this.hasCrystal = false;
+                this.hasSpellbook = false;
+                this.itemTimers = {};
+                this.enemyTypes = ['normal', 'fast', 'ranged'];
+                this.bossMode = false;
+            }
+
+            onInit() {
+                this.circleX = this.width / 2;
+                this.circleY = this.height / 2;
+                this.circleRadius = Math.min(this.width, this.height) * 0.15;
+                this.enemies = [];
+                this.wave = 0;
+                this.charge = 0;
+                this.isWaveActive = false;
+                this.waveDelay = 0.5;
+                this.spawnCooldown = 0;
+                this.enemiesSpawned = 0;
+                this.magicParticles = [];
+                this.spellCooldown = 0;
+                // 開始第一波
+                this._startWave();
+            }
+
+            _startWave() {
+                this.wave++;
+                if (this.wave > this.maxWaves) {
+                    this.levelComplete();
+                    return;
+                }
+                this.isWaveActive = true;
+                this.enemiesSpawned = 0;
+                this.spawnCooldown = 0;
+                const count = this.wave === 1 ? 3 : (this.wave === 2 ? 4 : 5);
+                this.enemiesPerWave = count;
+                // Boss 關
+                if (this.wave === this.maxWaves) {
+                    this.bossMode = true;
+                    this.enemiesPerWave = 1;
+                } else {
+                    this.bossMode = false;
+                }
+                Logger.gameEvent(this.gameId, 'wave_start', { wave: this.wave, count: this.enemiesPerWave });
+            }
+
+            onBreath(v) {
+                // 呼吸強度 → 充能速度
+                if (this.isPlaying && !this.isResting && this.isWaveActive) {
+                    const speed = 0.3 + (v / 100) * 1.2;
+                    this.charge += speed;
+                    if (this.charge >= this.maxCharge) {
+                        this.charge = this.maxCharge;
+                        // 自動釋放法術
+                        this._castSpell();
+                    }
+                }
+                // 魔法陣亮度
+            }
+
+            _castSpell() {
+                if (this.spellCooldown > 0) return;
+                if (this.enemies.length === 0) return;
+
+                this.charge = 0;
+                this.spellCooldown = 0.4;
+
+                // 找最近的敵人
+                let target = null;
+                let minDist = Infinity;
+                for (const e of this.enemies) {
+                    const d = Math.hypot(e.x - this.circleX, e.y - this.circleY);
+                    if (d < minDist) { minDist = d;
+                        target = e; }
+                }
+                if (!target) return;
+
+                // 法術效果
+                const damage = this.hasSpellbook ? 40 : (20 + Math.random() * 15);
+                target.hp -= damage;
+                // 粒子
+                for (let i = 0; i < 20; i++) {
+                    this.magicParticles.push({
+                        x: target.x,
+                        y: target.y,
+                        vx: (Math.random() - 0.5) * 10,
+                        vy: (Math.random() - 0.5) * 10 - 4,
+                        life: 1,
+                        decay: 0.03 + Math.random() * 0.02,
+                        size: 3 + Math.random() * 5,
+                        color: ['#a78bfa', '#818cf8', '#c084fc', '#f472b6'][Math.floor(Math.random() * 4)]
+                    });
+                }
+
+                if (target.hp <= 0) {
+                    // 擊敗敵人
+                    this.enemies = this.enemies.filter(e => e !== target);
+                    this.addScore(15 + this.wave * 5);
+                    this.addCombo();
+                    this.successCount++;
+                    // 掉落道具
+                    if (Math.random() < 0.25) {
+                        if (Math.random() > 0.5) {
+                            this.hasCrystal = true;
+                            this.charge = Math.min(this.maxCharge, this.charge + 50);
+                            setTimeout(() => { this.hasCrystal = false; }, 3000);
+                        } else {
+                            this.hasSpellbook = true;
+                            setTimeout(() => { this.hasSpellbook = false; }, 4000);
+                        }
+                    }
+                    // 粒子爆炸
+                    for (let i = 0; i < 30; i++) {
+                        this.magicParticles.push({
+                            x: target.x,
+                            y: target.y,
+                            vx: (Math.random() - 0.5) * 15,
+                            vy: (Math.random() - 0.5) * 15 - 5,
+                            life: 1,
+                            decay: 0.015 + Math.random() * 0.02,
+                            size: 2 + Math.random() * 6,
+                            color: ['#facc15', '#f87171', '#34d399', '#60a5fa'][Math.floor(Math.random() * 4)]
+                        });
+                    }
+                    Logger.gameEvent(this.gameId, 'enemy_defeated', { wave: this.wave, remaining: this.enemies.length });
+                }
+
+                // 檢查波次完成
+                if (this.enemies.length === 0 && this.isWaveActive) {
+                    this.isWaveActive = false;
+                    this.addScore(30);
+                    if (this.wave >= this.maxWaves) {
+                        this.levelComplete();
+                    } else {
+                        setTimeout(() => this._startWave(), 600);
+                    }
+                }
+            }
+
+            update(dt) {
+                // 冷卻
+                if (this.spellCooldown > 0) this.spellCooldown -= dt;
+
+                // 生成敵人
+                if (this.isWaveActive && this.enemiesSpawned < this.enemiesPerWave) {
+                    this.spawnCooldown -= dt;
+                    if (this.spawnCooldown <= 0) {
+                        this._spawnEnemy();
+                        this.enemiesSpawned++;
+                        this.spawnCooldown = 0.6 - this.wave * 0.05;
+                    }
+                }
+
+                // 更新敵人
+                for (const e of this.enemies) {
+                    const dx = this.circleX - e.x;
+                    const dy = this.circleY - e.y;
+                    const dist = Math.hypot(dx, dy);
+                    if (dist > 0) {
+                        const speed = e.type === 'fast' ? 70 : (e.type === 'ranged' ? 25 : 45);
+                        e.x += (dx / dist) * speed * dt;
+                        e.y += (dy / dist) * speed * dt;
+                    }
+                    // 遠程攻擊
+                    if (e.type === 'ranged' && e.attackCooldown > 0) {
+                        e.attackCooldown -= dt;
+                    }
+                    if (e.type === 'ranged' && e.attackCooldown <= 0) {
+                        e.attackCooldown = 2;
+                        // 發射彈幕 (簡化: 直接扣命)
+                        if (Math.random() < 0.3) {
+                            this.loseLife();
+                            this.resetCombo();
+                        }
+                    }
+                    // 碰到魔法陣
+                    if (dist < this.circleRadius + 20) {
+                        this.loseLife();
+                        this.resetCombo();
+                        this.enemies = this.enemies.filter(ee => ee !== e);
+                    }
+                }
+
+                // 粒子更新
+                for (let i = this.magicParticles.length - 1; i >= 0; i--) {
+                    const p = this.magicParticles[i];
+                    p.x += p.vx * dt * 60;
+                    p.y += p.vy * dt * 60;
+                    p.vy += 0.2;
+                    p.life -= p.decay;
+                    if (p.life <= 0) this.magicParticles.splice(i, 1);
+                }
+
+                // 道具計時
+                for (const key of Object.keys(this.itemTimers)) {
+                    this.itemTimers[key] -= dt;
+                    if (this.itemTimers[key] <= 0) {
+                        delete this.itemTimers[key];
+                        if (key === 'crystal') this.hasCrystal = false;
+                        if (key === 'spellbook') this.hasSpellbook = false;
+                    }
+                }
+            }
+
+            _spawnEnemy() {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 150 + Math.random() * 120;
+                const x = this.circleX + Math.cos(angle) * dist;
+                const y = this.circleY + Math.sin(angle) * dist;
+                let type = 'normal';
+                if (this.wave >= 2 && Math.random() < 0.3) type = 'fast';
+                if (this.wave >= 3 && Math.random() < 0.3) type = 'ranged';
+                if (this.bossMode) type = 'boss';
+                const hp = type === 'boss' ? 80 : (type === 'fast' ? 20 : (type === 'ranged' ? 15 : 30));
+                this.enemies.push({
+                    x,
+                    y,
+                    hp,
+                    maxHp: hp,
+                    type,
+                    attackCooldown: 1 + Math.random()
+                });
+            }
+
+            draw() {
+                const ctx = this.ctx;
+                const W = this.width,
+                    H = this.height;
+                ctx.clearRect(0, 0, W, H);
+
+                // 背景
+                const bgGrad = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.7);
+                bgGrad.addColorStop(0, '#1a1035');
+                bgGrad.addColorStop(1, '#0a0618');
+                ctx.fillStyle = bgGrad;
+                ctx.fillRect(0, 0, W, H);
+
+                // 魔法陣
+                const cx = this.circleX,
+                    cy = this.circleY;
+                const r = this.circleRadius;
+                // 外圈
+                ctx.save();
+                const breathGlow = 0.5 + (this.breathValue / 100) * 0.5;
+                ctx.shadowColor = `rgba(167,139,250,${0.2 * breathGlow})`;
+                ctx.shadowBlur = 40 * breathGlow;
+                ctx.strokeStyle = `rgba(167,139,250,${0.3 + 0.4 * (this.charge / this.maxCharge)})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                ctx.stroke();
+                // 內圈
+                ctx.strokeStyle = `rgba(167,139,250,${0.15 + 0.3 * (this.charge / this.maxCharge)})`;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.arc(cx, cy, r * 0.6, 0, Math.PI * 2);
+                ctx.stroke();
+                // 符文
+                for (let i = 0; i < 8; i++) {
+                    const a = (i / 8) * Math.PI * 2 + Date.now() / 3000;
+                    const x = cx + Math.cos(a) * r * 0.85;
+                    const y = cy + Math.sin(a) * r * 0.85;
+                    ctx.fillStyle = `rgba(167,139,250,${0.2 + 0.3 * (this.charge / this.maxCharge)})`;
+                    ctx.font = `${12 + 4 * (this.charge / this.maxCharge)}px serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('✦', x, y);
+                }
+                ctx.restore();
+
+                // 充能條 (在魔法陣周圍)
+                ctx.save();
+                const chargeAngle = (this.charge / this.maxCharge) * Math.PI * 2 - Math.PI / 2;
+                ctx.strokeStyle = '#818cf8';
+                ctx.lineWidth = 4;
+                ctx.shadowColor = 'rgba(129,140,248,0.5)';
+                ctx.shadowBlur = 15;
+                ctx.beginPath();
+                ctx.arc(cx, cy, r + 16, -Math.PI / 2, chargeAngle);
+                ctx.stroke();
+                ctx.restore();
+
+                // 敵人
+                for (const e of this.enemies) {
+                    ctx.save();
+                    const color = e.type === 'boss' ? '#ef4444' :
+                        e.type === 'fast' ? '#facc15' :
+                        e.type === 'ranged' ? '#60a5fa' : '#a78bfa';
+                    ctx.shadowColor = `${color}44`;
+                    ctx.shadowBlur = 20;
+                    // 身體
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    ctx.arc(e.x, e.y, e.type === 'boss' ? 24 : 16, 0, Math.PI * 2);
+                    ctx.fill();
+                    // 眼睛
+                    ctx.fillStyle = 'white';
+                    ctx.beginPath();
+                    ctx.arc(e.x - 5, e.y - 4, 4, 0, Math.PI * 2);
+                    ctx.arc(e.x + 5, e.y - 4, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#1a1035';
+                    ctx.beginPath();
+                    ctx.arc(e.x - 4, e.y - 3, 2, 0, Math.PI * 2);
+                    ctx.arc(e.x + 6, e.y - 3, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    // HP 條
+                    const hpW = 30;
+                    const hpH = 4;
+                    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                    ctx.fillRect(e.x - hpW / 2, e.y - 28, hpW, hpH);
+                    ctx.fillStyle = e.hp / e.maxHp > 0.5 ? '#4ade80' : '#f87171';
+                    ctx.fillRect(e.x - hpW / 2, e.y - 28, hpW * (e.hp / e.maxHp), hpH);
+                    ctx.restore();
+                }
+
+                // 魔法粒子
+                for (const p of this.magicParticles) {
+                    ctx.globalAlpha = p.life;
+                    ctx.fillStyle = p.color;
+                    ctx.shadowColor = p.color;
+                    ctx.shadowBlur = 15;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+                ctx.shadowBlur = 0;
+
+                // 波次資訊
+                ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                ctx.font = '13px sans-serif';
+                ctx.textAlign = 'left';
+                ctx.fillText(`⚔️ 波次 ${this.wave}/${this.maxWaves}  敵人 ${this.enemies.length}`, 20, 30);
+                if (this.hasCrystal) {
+                    ctx.fillStyle = '#c084fc';
+                    ctx.fillText('💜 魔力水晶 (+50%)', 20, 52);
+                }
+                if (this.hasSpellbook) {
+                    ctx.fillStyle = '#facc15';
+                    ctx.fillText('📖 咒語書 (暴擊!)', 20, 74);
+                }
+                // 充能百分比
+                ctx.textAlign = 'right';
+                ctx.fillStyle = '#818cf8';
+                ctx.font = '14px monospace';
+                ctx.fillText(`${Math.round(this.charge)}%`, W - 20, 30);
+            }
+
+            onRestStart() {
+                // 暫停充能
+            }
+            onRestEnd() {}
+        }
+
+        // ---------- 5.4 蒲公英快遞 ----------
+        class DandelionExpressGame extends GameBase {
+            constructor(container, breath) {
+                super(container, breath, GAMES.DANDELION_EXPRESS);
+                this.playerX = 0;
+                this.playerY = 0;
+                this.velocityY = 0;
+                this.targetX = 0;
+                this.targetY = 0;
+                this.flowers = [];
+                this.flowerIndex = 0;
+                this.flowersTarget = 5;
+                this.obstacles = [];
+                this.wind = 0;
+                this.windTimer = 0;
+                this.timeLimit = 30;
+                this.timeLeft = 30;
+                this.hasCompass = false;
+                this.hasTailwind = false;
+                this.tailwindTimer = 0;
+                this.particles = [];
+                this.flowerParticles = [];
+                this.scrollSpeed = 0;
+                this.gameOverFlag = false;
+                this.levelObstacles = [];
+                this._generateLevel();
+            }
+
+            _generateLevel() {
+                const W = this.width,
+                    H = this.height;
+                this.playerX = W * 0.1;
+                this.playerY = H * 0.5;
+                this.velocityY = 0;
+                this.flowerIndex = 0;
+                this.timeLeft = this.timeLimit;
+                // 生成花朵
+                this.flowers = [];
+                const count = this.flowersTarget;
+                for (let i = 0; i < count; i++) {
+                    this.flowers.push({
+                        x: W * (0.2 + (i / count) * 0.6) + (Math.random() - 0.5) * 40,
+                        y: 60 + Math.random() * (H - 120),
+                        collected: false,
+                        size: 20 + Math.random() * 10
+                    });
+                }
+                // 障礙物
+                this.obstacles = [];
+                const obsCount = 3 + this.level * 2;
+                for (let i = 0; i < obsCount; i++) {
+                    this.obstacles.push({
+                        x: W * (0.15 + Math.random() * 0.7),
+                        y: 40 + Math.random() * (H - 80),
+                        w: 20 + Math.random() * 30,
+                        h: 20 + Math.random() * 30,
+                        moving: Math.random() > 0.6,
+                        vx: (Math.random() - 0.5) * 30,
+                        vy: (Math.random() - 0.5) * 30
+                    });
+                }
+                this.gameOverFlag = false;
+                this.scrollSpeed = 20 + this.level * 5;
+            }
+
+            onBreath(v) {
+                // 呼吸強度 → 上升速度 (強呼吸上升)
+                if (this.isPlaying && !this.isResting && !this.gameOverFlag) {
+                    const targetVy = (v / 100) * 120 - 50;
+                    this.velocityY += (targetVy - this.velocityY) * 0.08;
+                    this.playerY += this.velocityY * 0.016;
+                    // 限制範圍
+                    this.playerY = Math.max(20, Math.min(this.height - 20, this.playerY));
+                    // 順風加速
+                    if (this.hasTailwind) {
+                        this.playerX += 1.5;
+                    } else {
+                        this.playerX += this.scrollSpeed * 0.016;
+                    }
+                }
+            }
+
+            update(dt) {
+                if (this.gameOverFlag) return;
+
+                // 時間
+                this.timeLeft -= dt;
+                if (this.timeLeft <= 0) {
+                    this.timeLeft = 0;
+                    this.gameOver();
+                    return;
+                }
+
+                // 風向變化
+                this.windTimer += dt;
+                if (this.windTimer > 3) {
+                    this.windTimer = 0;
+                    this.wind = (Math.random() - 0.5) * 40;
+                }
+                this.playerY += this.wind * dt * 0.1;
+
+                // 順風計時
+                if (this.hasTailwind) {
+                    this.tailwindTimer -= dt;
+                    if (this.tailwindTimer <= 0) this.hasTailwind = false;
+                }
+
+                // 指南針計時
+                if (this.hasCompass) {
+                    // 5秒後消失
+                    setTimeout(() => { this.hasCompass = false; }, 5000);
+                }
+
+                // 檢查花朵收集
+                for (const flower of this.flowers) {
+                    if (flower.collected) continue;
+                    const dx = this.playerX - flower.x;
+                    const dy = this.playerY - flower.y;
+                    if (Math.hypot(dx, dy) < 35) {
+                        flower.collected = true;
+                        this.flowerIndex++;
+                        this.addScore(20);
+                        this.addCombo();
+                        this.successCount++;
+                        // 綻放粒子
+                        for (let i = 0; i < 25; i++) {
+                            this.flowerParticles.push({
+                                x: flower.x,
+                                y: flower.y,
+                                vx: (Math.random() - 0.5) * 12,
+                                vy: (Math.random() - 0.5) * 12 - 4,
+                                life: 1,
+                                decay: 0.02 + Math.random() * 0.02,
+                                size: 2 + Math.random() * 5,
+                                color: ['#f472b6', '#fb7185', '#facc15', '#4ade80'][Math.floor(Math.random() * 4)]
+                            });
+                        }
+                        Logger.gameEvent(this.gameId, 'flower_collected', { flowers: this.flowerIndex });
+                        if (this.flowerIndex >= this.flowersTarget) {
+                            this.levelComplete();
+                            return;
+                        }
+                        // 隨機道具
+                        if (Math.random() < 0.2) {
+                            this.hasTailwind = true;
+                            this.tailwindTimer = 3;
+                        }
+                        if (Math.random() < 0.1) {
+                            this.hasCompass = true;
+                        }
+                    }
+                }
+
+                // 障礙物碰撞
+                for (const obs of this.obstacles) {
+                    // 移動障礙
+                    if (obs.moving) {
+                        obs.x += obs.vx * dt;
+                        obs.y += obs.vy * dt;
+                        if (obs.x < 20 || obs.x > this.width - 20) obs.vx *= -1;
+                        if (obs.y < 20 || obs.y > this.height - 20) obs.vy *= -1;
+                    }
+                    // 碰撞檢測
+                    const halfW = obs.w / 2,
+                        halfH = obs.h / 2;
+                    const cx = obs.x,
+                        cy = obs.y;
+                    const dist = Math.hypot(this.playerX - cx, this.playerY - cy);
+                    if (dist < halfW + 15) {
+                        this.loseLife();
+                        this.resetCombo();
+                        // 重置位置
+                        this.playerX = this.width * 0.1;
+                        this.playerY = this.height * 0.5;
+                        // 移除障礙物
+                        this.obstacles = this.obstacles.filter(o => o !== obs);
+                    }
+                }
+
+                // 粒子更新
+                for (let i = this.flowerParticles.length - 1; i >= 0; i--) {
+                    const p = this.flowerParticles[i];
+                    p.x += p.vx * dt * 60;
+                    p.y += p.vy * dt * 60;
+                    p.vy += 0.2;
+                    p.life -= p.decay;
+                    if (p.life <= 0) this.flowerParticles.splice(i, 1);
+                }
+
+                // 邊界檢查 - 超出左邊或右邊太遠
+                if (this.playerX > this.width + 50) {
+                    this.gameOver();
+                }
+            }
+
+            draw() {
+                const ctx = this.ctx;
+                const W = this.width,
+                    H = this.height;
+                ctx.clearRect(0, 0, W, H);
+
+                // 背景 - 藍天草地
+                const grad = ctx.createLinearGradient(0, 0, 0, H);
+                grad.addColorStop(0, '#87CEEB');
+                grad.addColorStop(0.6, '#b5dffa');
+                grad.addColorStop(0.85, '#7ec87e');
+                grad.addColorStop(1, '#4a8f4a');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, W, H);
+
+                // 雲朵
+                ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                for (let i = 0; i < 6; i++) {
+                    const cx = (i * 150 + Date.now() / 2000) % (W + 100) - 50;
+                    const cy = 30 + i * 20 % 80;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 30, 0, Math.PI * 2);
+                    ctx.arc(cx + 35, cy - 10, 25, 0, Math.PI * 2);
+                    ctx.arc(cx + 60, cy + 5, 28, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // 花朵
+                for (const flower of this.flowers) {
+                    if (flower.collected) continue;
+                    ctx.save();
+                    // 花莖
+                    ctx.strokeStyle = '#4a8f4a';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(flower.x, flower.y + flower.size);
+                    ctx.lineTo(flower.x, flower.y + flower.size + 25);
+                    ctx.stroke();
+                    // 花瓣
+                    const petalCount = 6;
+                    for (let i = 0; i < petalCount; i++) {
+                        const a = (i / petalCount) * Math.PI * 2 + Date.now() / 2000;
+                        ctx.fillStyle = ['#f472b6', '#fb7185', '#facc15', '#f87171', '#a78bfa', '#34d399'][i % 6];
+                        ctx.beginPath();
+                        ctx.ellipse(
+                            flower.x + Math.cos(a) * flower.size * 0.6,
+                            flower.y + Math.sin(a) * flower.size * 0.6,
+                            8, 12, a, 0, Math.PI * 2
+                        );
+                        ctx.fill();
+                    }
+                    // 花蕊
+                    ctx.fillStyle = '#facc15';
+                    ctx.beginPath();
+                    ctx.arc(flower.x, flower.y, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                // 障礙物
+                for (const obs of this.obstacles) {
+                    ctx.save();
+                    ctx.fillStyle = '#5c3d2e';
+                    ctx.shadowColor = 'rgba(0,0,0,0.2)';
+                    ctx.shadowBlur = 10;
+                    // 樹枝/蜘蛛網
+                    ctx.fillRect(obs.x - obs.w / 2, obs.y - obs.h / 2, obs.w, obs.h);
+                    ctx.strokeStyle = '#3d2a1e';
+                    ctx.lineWidth = 2;
+                    for (let i = 0; i < 4; i++) {
+                        const a = (i / 4) * Math.PI * 2;
+                        ctx.beginPath();
+                        ctx.moveTo(obs.x, obs.y);
+                        ctx.lineTo(obs.x + Math.cos(a) * obs.w * 0.6, obs.y + Math.sin(a) * obs.h * 0.6);
+                        ctx.stroke();
+                    }
+                    ctx.restore();
+                }
+
+                // 蒲公英種子 (玩家)
+                ctx.save();
+                const seedSize = 16 + (this.breathValue / 100) * 8;
+                ctx.shadowColor = 'rgba(255,255,255,0.2)';
+                ctx.shadowBlur = 20;
+                // 種子主體
+                ctx.fillStyle = '#e8e0d0';
+                ctx.beginPath();
+                ctx.ellipse(this.playerX, this.playerY, 6, 10, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // 絨毛
+                for (let i = 0; i < 12; i++) {
+                    const a = (i / 12) * Math.PI * 2 + Date.now() / 4000;
+                    ctx.strokeStyle = `rgba(255,255,255,${0.3 + 0.3 * (this.breathValue / 100)})`;
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(this.playerX, this.playerY - 6);
+                    const len = 12 + (this.breathValue / 100) * 10;
+                    ctx.lineTo(this.playerX + Math.cos(a) * len, this.playerY - 6 + Math.sin(a) * len);
+                    ctx.stroke();
+                }
+                // 粒子尾巴
+                for (let i = 0; i < 8; i++) {
+                    const t = i / 8;
+                    const x = this.playerX - t * 30 - (this.breathValue / 100) * 10;
+                    const y = this.playerY + (Math.random() - 0.5) * 20;
+                    ctx.fillStyle = `rgba(255,255,255,${0.1 * (1 - t)})`;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 2 + t * 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+
+                // 花朵綻放粒子
+                for (const p of this.flowerParticles) {
+                    ctx.globalAlpha = p.life;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+
+                // HUD 額外
+                ctx.fillStyle = 'rgba(0,0,0,0.4)';
+                ctx.fillRect(16, 16, 180, 40);
+                ctx.fillStyle = 'white';
+                ctx.font = '13px sans-serif';
+                ctx.textAlign = 'left';
+                ctx.fillText(`🌼 ${this.flowerIndex}/${this.flowersTarget}   ⏱️ ${Math.ceil(this.timeLeft)}s`, 24, 44);
+                if (this.hasTailwind) {
+                    ctx.fillStyle = '#4ade80';
+                    ctx.fillText('💨 順風', 24, 66);
+                }
+                if (this.hasCompass) {
+                    ctx.fillStyle = '#facc15';
+                    ctx.fillText('🧭 指南針', 24, 88);
+                }
+
+                // 風向指示
+                ctx.save();
+                ctx.fillStyle = 'rgba(255,255,255,0.15)';
+                ctx.font = '20px sans-serif';
+                ctx.textAlign = 'center';
+                const windDir = this.wind > 0 ? '→' : '←';
+                ctx.fillText(windDir, W - 30, 30);
+                ctx.restore();
+            }
+
+            onRestStart() {}
+            onRestEnd() {}
+
+            onGameOver() {
+                this.gameOverFlag = true;
+            }
+        }
+
+        // ---------- 5.5 玻璃心大師 ----------
+        class GlassHeartGame extends GameBase {
+            constructor(container, breath) {
+                super(container, breath, GAMES.GLASS_HEART);
+                this.crystalX = 0;
+                this.crystalY = 0;
+                this.crystalRadius = 80;
+                this.cutPath = [];
+                this.cutProgress = 0;
+                this.cutIndex = 0;
+                this.cutting = false;
+                this.cutDepth = 0;
+                this.maxDepth = 20;
+                this.fractureRisk = 0;
+                this.worksDone = 0;
+                this.worksTarget = 3;
+                this.blueprint = [];
+                this.blueprintIndex = 0;
+                this.tempPath = [];
+                this.hasStrengthen = false;
+                this.hasLens = false;
+                this.itemTimers = {};
+                this.shake = 0;
+                this.crystalColor = '#7dd3fc';
+                this.particles = [];
+                this._generateBlueprint();
+            }
+
+            _generateBlueprint() {
+                const W = this.width,
+                    H = this.height;
+                this.crystalX = W / 2;
+                this.crystalY = H / 2;
+                this.crystalRadius = Math.min(W, H) * 0.2;
+                this.cutPath = [];
+                this.cutIndex = 0;
+                this.cutProgress = 0;
+                this.fractureRisk = 0;
+                this.tempPath = [];
+
+                // 根據關卡生成藍圖路徑
+                const complexity = this.level;
+                const points = [];
+                const cx = this.crystalX,
+                    cy = this.crystalY,
+                    r = this.crystalRadius * 0.65;
+                const steps = 20 + complexity * 10;
+
+                if (complexity === 1) {
+                    // 直線
+                    for (let i = 0; i < steps; i++) {
+                        const t = i / steps;
+                        points.push({ x: cx - r + t * r * 2, y: cy });
+                    }
+                } else if (complexity === 2) {
+                    // 彎曲
+                    for (let i = 0; i < steps; i++) {
+                        const t = i / steps;
+                        points.push({
+                            x: cx - r + t * r * 2,
+                            y: cy + 40 * Math.sin(t * Math.PI * 1.5)
+                        });
+                    }
+                } else if (complexity === 3) {
+                    // 多線組合
+                    for (let i = 0; i < steps; i++) {
+                        const t = i / steps;
+                        const x = cx - r + t * r * 2;
+                        const y = cy + 30 * Math.sin(t * Math.PI * 2) + 20 * Math.sin(t * Math.PI * 3);
+                        points.push({ x, y });
+                    }
+                } else if (complexity === 4) {
+                    // 弧線
+                    for (let i = 0; i < steps; i++) {
+                        const t = i / steps;
+                        const angle = -Math.PI / 2 + t * Math.PI * 1.8;
+                        const rad = r * (0.7 + 0.3 * Math.sin(t * Math.PI * 2));
+                        points.push({ x: cx + rad * Math.cos(angle), y: cy + rad * Math.sin(angle) * 0.6 });
+                    }
+                } else {
+                    // 複雜圖案 (星星)
+                    for (let i = 0; i < steps; i++) {
+                        const t = i / steps;
+                        const angle = t * Math.PI * 2;
+                        const rad = r * (0.5 + 0.4 * Math.sin(angle * 5 + 0.5));
+                        points.push({ x: cx + rad * Math.cos(angle), y: cy + rad * Math.sin(angle) * 0.8 });
+                    }
+                }
+                this.blueprint = points;
+                this.blueprintIndex = 0;
+                this.cutPath = [];
+                this.cutProgress = 0;
+            }
+
+            onBreath(v) {
+                // 呼吸強度 → 切割深度
+                if (this.isPlaying && !this.isResting && this.cutting) {
+                    const targetDepth = (v / 100) * this.maxDepth;
+                    this.cutDepth += (targetDepth - this.cutDepth) * 0.1;
+                    // 風險累積
+                    if (v > 70) {
+                        this.fractureRisk += (v - 70) / 30 * 0.5;
+                    } else if (v < 30) {
+                        this.fractureRisk += (30 - v) / 30 * 0.3;
+                    } else {
+                        this.fractureRisk *= 0.98;
+                    }
+                    // 碎裂
+                    if (this.fractureRisk > 100) {
+                        this._fracture();
+                        return;
+                    }
+                    // 切割進度
+                    if (this.cutDepth > 3) {
+                        this.cutProgress += (this.cutDepth / this.maxDepth) * 0.8;
+                        if (this.cutProgress >= 1) {
+                            this.cutProgress = 0;
+                            this._completeCut();
+                        }
+                    }
+                }
+            }
+
+            _completeCut() {
+                if (this.blueprintIndex >= this.blueprint.length) return;
+                // 將當前點加入切割路徑
+                const idx = Math.min(this.blueprintIndex, this.blueprint.length - 1);
+                this.cutPath.push(this.blueprint[idx]);
+                this.blueprintIndex++;
+                this.addScore(12);
+                this.addCombo();
+                this.successCount++;
+                // 粒子
+                for (let i = 0; i < 10; i++) {
+                    this.particles.push({
+                        x: this.blueprint[idx].x + (Math.random() - 0.5) * 10,
+                        y: this.blueprint[idx].y + (Math.random() - 0.5) * 10,
+                        vx: (Math.random() - 0.5) * 4,
+                        vy: (Math.random() - 0.5) * 4 - 2,
+                        life: 1,
+                        decay: 0.02 + Math.random() * 0.02,
+                        size: 1 + Math.random() * 3,
+                        color: '#7dd3fc'
+                    });
+                }
+                // 檢查是否完成
+                if (this.blueprintIndex >= this.blueprint.length) {
+                    this.worksDone++;
+                    if (this.worksDone >= this.worksTarget) {
+                        this.levelComplete();
+                    } else {
+                        // 重置水晶
+                        this.cutPath = [];
+                        this.blueprintIndex = 0;
+                        this.fractureRisk = 0;
+                        this.cutDepth = 0;
+                        this._generateBlueprint();
+                        Logger.gameEvent(this.gameId, 'work_complete', { works: this.worksDone });
+                    }
+                }
+            }
+
+            _fracture() {
+                this.loseLife();
+                this.resetCombo();
+                this.fractureRisk = 0;
+                this.cutDepth = 0;
+                this.cutProgress = 0;
+                // 碎裂特效
+                for (let i = 0; i < 40; i++) {
+                    this.particles.push({
+                        x: this.crystalX + (Math.random() - 0.5) * this.crystalRadius * 1.2,
+                        y: this.crystalY + (Math.random() - 0.5) * this.crystalRadius * 1.2,
+                        vx: (Math.random() - 0.5) * 12,
+                        vy: (Math.random() - 0.5) * 12 - 4,
+                        life: 1,
+                        decay: 0.01 + Math.random() * 0.02,
+                        size: 2 + Math.random() * 6,
+                        color: '#f87171'
+                    });
+                }
+                this.shake = 8;
+                // 重置
+                this.cutPath = [];
+                this.blueprintIndex = 0;
+                this._generateBlueprint();
+            }
+
+            update(dt) {
+                // 震動衰減
+                if (this.shake > 0) this.shake *= 0.9;
+                if (this.shake < 0.1) this.shake = 0;
+
+                // 粒子
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    const p = this.particles[i];
+                    p.x += p.vx * dt * 60;
+                    p.y += p.vy * dt * 60;
+                    p.vy += 0.2;
+                    p.life -= p.decay;
+                    if (p.life <= 0) this.particles.splice(i, 1);
+                }
+
+                // 道具計時
+                for (const key of Object.keys(this.itemTimers)) {
+                    this.itemTimers[key] -= dt;
+                    if (this.itemTimers[key] <= 0) {
+                        delete this.itemTimers[key];
+                        if (key === 'strengthen') this.hasStrengthen = false;
+                        if (key === 'lens') this.hasLens = false;
+                    }
+                }
+
+                // 隨機道具掉落
+                if (Math.random() < 0.001) {
+                    if (Math.random() > 0.5) {
+                        this.hasStrengthen = true;
+                        this.itemTimers.strengthen = 5;
+                    } else {
+                        this.hasLens = true;
+                        this.itemTimers.lens = 5;
+                    }
+                }
+            }
+
+            draw() {
+                const ctx = this.ctx;
+                const W = this.width,
+                    H = this.height;
+                ctx.save();
+
+                // 背景 - 冷色調
+                const grad = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.7);
+                grad.addColorStop(0, '#0f1a2e');
+                grad.addColorStop(1, '#060b12');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, W, H);
+
+                // 震動
+                if (this.shake > 0.5) {
+                    const sx = (Math.random() - 0.5) * this.shake * 2;
+                    const sy = (Math.random() - 0.5) * this.shake * 2;
+                    ctx.translate(sx, sy);
+                }
+
+                const cx = this.crystalX,
+                    cy = this.crystalY;
+                const r = this.crystalRadius;
+
+                // 水晶原石 (透明)
+                ctx.save();
+                ctx.shadowColor = 'rgba(125,211,252,0.1)';
+                ctx.shadowBlur = 40;
+
+                // 多面體效果
+                for (let i = 0; i < 8; i++) {
+                    const a = (i / 8) * Math.PI * 2 + Date.now() / 5000;
+                    const x = cx + Math.cos(a) * r * 0.9;
+                    const y = cy + Math.sin(a) * r * 0.9;
+                    const grad2 = ctx.createRadialGradient(x, y, 0, cx, cy, r);
+                    grad2.addColorStop(0, 'rgba(125,211,252,0.05)');
+                    grad2.addColorStop(0.5, 'rgba(125,211,252,0.08)');
+                    grad2.addColorStop(1, 'rgba(125,211,252,0.02)');
+                    ctx.fillStyle = grad2;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, r * (0.7 + 0.3 * Math.sin(a + 1.2)), 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // 水晶邊框
+                ctx.strokeStyle = 'rgba(125,211,252,0.2)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+
+                // 藍圖虛線 (目標路徑)
+                ctx.save();
+                ctx.setLineDash([6, 8]);
+                ctx.strokeStyle = 'rgba(125,211,252,0.25)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                if (this.blueprint.length > 0) {
+                    const startIdx = Math.max(0, this.blueprintIndex - 1);
+                    ctx.moveTo(this.blueprint[startIdx].x, this.blueprint[startIdx].y);
+                    for (let i = startIdx + 1; i < this.blueprint.length; i++) {
+                        ctx.lineTo(this.blueprint[i].x, this.blueprint[i].y);
+                    }
+                }
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // 當前切割點高亮
+                if (this.blueprintIndex < this.blueprint.length) {
+                    const p = this.blueprint[this.blueprintIndex];
+                    ctx.shadowColor = 'rgba(250,204,21,0.6)';
+                    ctx.shadowBlur = 25;
+                    ctx.fillStyle = '#facc15';
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                }
+                ctx.restore();
+
+                // 已切割路徑 (發光)
+                if (this.cutPath.length > 1) {
+                    ctx.save();
+                    ctx.shadowColor = 'rgba(125,211,252,0.3)';
+                    ctx.shadowBlur = 15;
+                    ctx.strokeStyle = '#7dd3fc';
+                    ctx.lineWidth = 2 + (this.cutDepth / this.maxDepth) * 4;
+                    ctx.beginPath();
+                    ctx.moveTo(this.cutPath[0].x, this.cutPath[0].y);
+                    for (let i = 1; i < this.cutPath.length; i++) {
+                        ctx.lineTo(this.cutPath[i].x, this.cutPath[i].y);
+                    }
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                // 切割深度指示 (在路徑終點)
+                if (this.cutDepth > 1 && this.blueprintIndex < this.blueprint.length) {
+                    const p = this.blueprint[this.blueprintIndex];
+                    ctx.save();
+                    const depth = Math.min(this.cutDepth / this.maxDepth, 1);
+                    ctx.fillStyle = `rgba(125,211,252,${0.1 + depth * 0.3})`;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 6 + depth * 10, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                // 風險指示器 (在晶體周圍)
+                if (this.fractureRisk > 20) {
+                    const risk = Math.min(this.fractureRisk / 100, 1);
+                    ctx.save();
+                    const color = `rgba(239,68,68,${risk * 0.3})`;
+                    ctx.shadowColor = color;
+                    ctx.shadowBlur = 30 * risk;
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 2 + risk * 4;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, r + 10 + risk * 15, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                // 粒子
+                for (const p of this.particles) {
+                    ctx.globalAlpha = p.life;
+                    ctx.fillStyle = p.color;
+                    ctx.shadowColor = p.color;
+                    ctx.shadowBlur = 10;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+                ctx.shadowBlur = 0;
+
+                // HUD 額外
+                ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                ctx.font = '13px sans-serif';
+                ctx.textAlign = 'left';
+                ctx.fillText(`💎 作品 ${this.worksDone}/${this.worksTarget}  進度 ${Math.round(this.cutProgress * 100)}%`, 20, 30);
+                ctx.fillText(`⚡ 風險 ${Math.round(this.fractureRisk)}%`, 20, 52);
+                if (this.hasStrengthen) {
+                    ctx.fillStyle = '#4ade80';
+                    ctx.fillText('💪 強化液 (容錯+1)', 20, 74);
+                }
+                if (this.hasLens) {
+                    ctx.fillStyle = '#60a5fa';
+                    ctx.fillText('🔮 透鏡', 20, 96);
+                }
+                ctx.restore();
+            }
+
+            onRestStart() {
+                this.cutting = false;
+            }
+            onRestEnd() {
+                this.cutting = true;
+            }
+
+            // 外部控制
+            toggleCutting() {
+                this.cutting = !this.cutting;
+                return this.cutting;
+            }
+        }
+
+        // ============================================================
+        //  6. 主應用程式 (UI + 路由)
+        // ============================================================
+        class App {
+            constructor() {
+                this.root = document.getElementById('root');
+                this.breath = new BreathController();
+                this.currentGame = null;
+                this.gameInstance = null;
+                this.container = null;
+                this.currentView = 'menu';
+                this.restCallback = null;
+                this._init();
+            }
+
+            async _init() {
+                this.breath.startSimulate();
+                await this._renderMenu();
+                this._setupGlobalKeys();
+            }
+
+            // ----- 菜單 -----
+            async _renderMenu() {
+                this.currentView = 'menu';
+                this.root.innerHTML = `
+              <div class="max-w-6xl mx-auto">
+                <div class="text-center mb-12">
+                  <h1 class="text-4xl md:text-5xl font-bold bg-gradient-to-r from-rose-300 via-amber-200 to-sky-300 bg-clip-text text-transparent mb-3">
+                    🌬️ 呼吸訓練 · 五款遊戲
+                  </h1>
+                  <p class="text-slate-400 text-sm md:text-base max-w-2xl mx-auto">
+                    使用呼吸強度 (0–100) 控制遊戲 · 支援模擬 / 鍵盤 / 串列裝置
+                  </p>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
+                  ${Object.entries(GAME_META).map(([id, meta]) => `
+                    <div class="game-card" data-game="${id}">
+                      <div class="icon">${meta.icon}</div>
+                      <div class="title">${meta.label}</div>
+                      <div class="desc">${meta.desc}</div>
+                      <div class="mt-3 text-xs text-slate-500">關卡 1–5 · 呼吸控制</div>
+                    </div>
+                  `).join('')}
+                </div>
+
+                <div class="flex flex-wrap items-center justify-center gap-4 bg-white/5 backdrop-blur rounded-2xl p-5 border border-white/5">
+                  <div class="flex items-center gap-3">
+                    <span class="text-slate-400 text-sm">輸入模式</span>
+                    <button class="btn-game primary mode-btn" data-mode="simulate">🌊 模擬</button>
+                    <button class="btn-game mode-btn" data-mode="keyboard">⌨️ 鍵盤</button>
+                    <button class="btn-game mode-btn" data-mode="serial">🔌 串列</button>
+                  </div>
+                  <div class="w-px h-8 bg-white/10"></div>
+                  <button class="btn-game success calibrate-btn">🎯 校正 (2s)</button>
+                  <div class="w-px h-8 bg-white/10"></div>
+                  <div class="flex items-center gap-3 text-sm text-slate-400">
+                    <span>呼吸值</span>
+                    <span class="text-white font-mono text-lg breath-display">50</span>
+                    <div class="breath-bar-track w-32">
+                      <div class="breath-bar-fill" style="width:50%"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mt-6 text-center text-xs text-slate-500/60">
+                  💡 鍵盤操作: ↑/W 吸氣 · ↓/S 吐氣 · 空白鍵 重置50
+                </div>
+              </div>
+            `;
+
+                // 事件綁定
+                $$('.game-card').forEach(el => {
+                    el.addEventListener('click', () => {
+                        const id = el.dataset.game;
+                        this._startGame(id);
+                    });
+                });
+
+                $$('.mode-btn').forEach(el => {
+                    el.addEventListener('click', () => {
+                        const mode = el.dataset.mode;
+                        this._setInputMode(mode);
+                        $$('.mode-btn').forEach(b => b.classList.remove('primary'));
+                        el.classList.add('primary');
+                    });
+                });
+
+                $('.calibrate-btn')?.addEventListener('click', async () => {
+                    const btn = $('.calibrate-btn');
+                    btn.textContent = '🔄 校正中...';
+                    btn.disabled = true;
+                    const base = await this.breath.calibrate(2000);
+                    btn.textContent = `✅ 基線 ${base}`;
+                    setTimeout(() => {
+                        btn.textContent = '🎯 校正 (2s)';
+                        btn.disabled = false;
+                    }, 1500);
+                });
+
+                // 呼吸顯示更新
+                this._breathDisplayInterval = setInterval(() => {
+                    const v = this.breath.getValue();
+                    const display = $('.breath-display');
+                    const bar = $('.breath-bar-fill');
+                    if (display) display.textContent = v;
+                    if (bar) bar.style.width = v + '%';
+                }, 80);
+
+                // 預設高亮
+                const activeMode = this.breath.mode || 'simulate';
+                const btn = $(`.mode-btn[data-mode="${activeMode}"]`);
+                if (btn) btn.classList.add('primary');
+
+                // 串列連線按鈕特殊處理
+                $('[data-mode="serial"]')?.addEventListener('click', async () => {
+                    const ok = await this.breath.connectSerial();
+                    if (!ok) {
+                        alert('無法連線串列裝置，請確認裝置已連接並授權。');
+                    }
+                });
+            }
+
+            // ----- 啟動遊戲 -----
+            _startGame(gameId) {
+                if (this.gameInstance) {
+                    this.gameInstance.destroy();
+                    this.gameInstance = null;
+                }
+
+                this.currentView = 'game';
+                const container = document.createElement('div');
+                container.className =
+                    'game-canvas-wrap w-full max-w-4xl mx-auto relative fade-enter';
+                container.style.aspectRatio = '16/9';
+                container.style.minHeight = '400px';
+
+                this.root.innerHTML = '';
+                this.root.appendChild(container);
+                this.container = container;
+
+                // 創建遊戲實例
+                let GameClass;
+                switch (gameId) {
+                    case GAMES.WIND_PAINTER:
+                        GameClass = WindPainterGame;
+                        break;
+                    case GAMES.CANDLE_EXPEDITION:
+                        GameClass = CandleExpeditionGame;
+                        break;
+                    case GAMES.MAGE_BREAKER:
+                        GameClass = MageBreakerGame;
+                        break;
+                    case GAMES.DANDELION_EXPRESS:
+                        GameClass = DandelionExpressGame;
+                        break;
+                    case GAMES.GLASS_HEART:
+                        GameClass = GlassHeartGame;
+                        break;
+                    default:
+                        return;
+                }
+
+                const game = new GameClass(container, this.breath);
+                this.gameInstance = game;
+
+                // 尺寸
+                const rect = container.getBoundingClientRect();
+                const w = rect.width || 800;
+                const h = rect.height || 450;
+                game.init(w, h);
+                game.setRestCallback((active) => {
+                    this._updateRestUI(active);
+                });
+
+                // 自訂回調
+                game.onGameOver = () => {
+                    this._showOverlay('💔 失敗', '再試一次', () => {
+                        this._startGame(gameId);
+                    });
+                    Logger.gameEvent(gameId, 'game_over', { score: game.score, lives: game.lives });
+                };
+                game.onAllComplete = () => {
+                    this._showOverlay('🏆 全部通關！', '回到選單', () => {
+                        this._renderMenu();
+                    });
+                    Logger.gameEvent(gameId, 'all_complete', { score: game.score });
+                };
+                game.onLevelUp = () => {
+                    // 顯示關卡完成
+                    this._showLevelUp(game.level);
+                };
+
+                // 渲染 HUD
+                this._renderHUD(game);
+                this._renderBreathBar();
+
+                // 額外控制按鈕 (針對特定遊戲)
+                this._renderGameControls(game);
+
+                // 開始
+                game.start();
+
+                // 回上一頁
+                const backBtn = document.createElement('button');
+                backBtn.className = 'btn-game absolute top-4 left-4 z-20 bg-black/40 hover:bg-black/60';
+                backBtn.innerHTML = '<i class="fas fa-arrow-left"></i> 返回';
+                backBtn.style.pointerEvents = 'auto';
+                backBtn.addEventListener('click', () => {
+                    game.stop();
+                    this._renderMenu();
+                });
+                container.appendChild(backBtn);
+
+                // 視窗大小變化
+                this._resizeObserver = new ResizeObserver(() => {
+                    if (game && game.canvas) {
+                        const r = container.getBoundingClientRect();
+                        game.canvas.width = r.width || 800;
+                        game.canvas.height = r.height || 450;
+                        game.width = game.canvas.width;
+                        game.height = game.canvas.height;
+                    }
+                });
+                this._resizeObserver.observe(container);
+            }
+
+            // ----- HUD 渲染 -----
+            _renderHUD(game) {
+                const container = this.container;
+                if (!container) return;
+
+                const hud = document.createElement('div');
+                hud.className = 'hud-overlay';
+                hud.id = 'game-hud';
+                hud.innerHTML = `
+              <div class="hud-left">
+                <div class="font-semibold text-sm">${game.gameTitle}</div>
+                <div class="flex gap-4 text-xs text-slate-300">
+                  <span>🏰 Lv.${game.level}/${game.maxLevel}</span>
+                  <span>⭐ ${game.score}</span>
+                  <span>🔥 x${game.combo}</span>
+                </div>
+                <div class="flex gap-1 mt-1">
+                  ${Array.from({ length: game.maxLives }, (_, i) =>
+                    `<span class="text-${i < game.lives ? 'rose-400' : 'slate-600'}">❤️</span>`
+                  ).join('')}
+                </div>
+              </div>
+              <div class="hud-right" id="hud-right">
+                <div class="stat"><i class="fas fa-wind"></i> <span id="hud-breath">50</span></div>
+                <div class="stat"><i class="fas fa-clock"></i> <span id="hud-rest">--</span></div>
+              </div>
+            `;
+                container.appendChild(hud);
+
+                // 更新 HUD 循環
+                this._hudInterval = setInterval(() => {
+                    const data = game.getHUDData();
+                    const breathEl = document.getElementById('hud-breath');
+                    if (breathEl) breathEl.textContent = data.breath;
+                    const restEl = document.getElementById('hud-rest');
+                    if (restEl) {
+                        restEl.textContent = data.isResting ?
+                            `🧘 ${Math.ceil(data.restDuration - data.restTotal)}s` :
+                            '--';
+                    }
+                    // 更新生命
+                    const livesContainer = hud.querySelector('.hud-left .flex.gap-1');
+                    if (livesContainer) {
+                        livesContainer.innerHTML = Array.from({ length: game.maxLives }, (_, i) =>
+                            `<span class="text-${i < game.lives ? 'rose-400' : 'slate-600'}">❤️</span>`
+                        ).join('');
+                    }
+                    // 更新分數 combo
+                    const info = hud.querySelector('.hud-left .flex.gap-4');
+                    if (info) {
+                        info.innerHTML = `
+                    <span>🏰 Lv.${data.level}/${data.maxLevel}</span>
+                    <span>⭐ ${data.score}</span>
+                    <span>🔥 x${data.combo}</span>
+                  `;
+                    }
+                }, 200);
+            }
+
+            _renderBreathBar() {
+                const container = this.container;
+                if (!container) return;
+                const bar = document.createElement('div');
+                bar.className = 'breath-hud';
+                bar.id = 'breath-hud';
+                bar.innerHTML = `
+              <span class="label">🌬️ 呼吸</span>
+              <div class="breath-bar-track">
+                <div class="breath-bar-fill" id="breath-fill" style="width:50%"></div>
+              </div>
+              <span class="value" id="breath-value">50</span>
+            `;
+                container.appendChild(bar);
+
+                this._breathGameInterval = setInterval(() => {
+                    const v = this.breath.getValue();
+                    const fill = document.getElementById('breath-fill');
+                    const val = document.getElementById('breath-value');
+                    if (fill) fill.style.width = v + '%';
+                    if (val) val.textContent = v;
+                }, 60);
+            }
+
+            _renderGameControls(game) {
+                const container = this.container;
+                if (!container) return;
+
+                const controls = document.createElement('div');
+                controls.className = 'absolute bottom-20 right-4 z-20 flex flex-col gap-2';
+                controls.style.pointerEvents = 'auto';
+
+                // 特殊控制
+                if (game instanceof WindPainterGame) {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn-game bg-blue-500/30 hover:bg-blue-500/50';
+                    btn.textContent = '🖌️ 畫筆 ' + (game.penDown ? 'ON' : 'OFF');
+                    btn.addEventListener('click', () => {
+                        const state = game.togglePen();
+                        btn.textContent = '🖌️ 畫筆 ' + (state ? 'ON' : 'OFF');
+                    });
+                    controls.appendChild(btn);
+                }
+
+                if (game instanceof GlassHeartGame) {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn-game bg-indigo-500/30 hover:bg-indigo-500/50';
+                    btn.textContent = '⚡ 切割 ' + (game.cutting ? 'ON' : 'OFF');
+                    btn.addEventListener('click', () => {
+                        const state = game.toggleCutting();
+                        btn.textContent = '⚡ 切割 ' + (state ? 'ON' : 'OFF');
+                    });
+                    controls.appendChild(btn);
+                }
+
+                // 強制休息按鈕 (測試用)
+                const restBtn = document.createElement('button');
+                restBtn.className = 'btn-game bg-amber-500/30 hover:bg-amber-500/50';
+                restBtn.textContent = '🧘 休息';
+                restBtn.addEventListener('click', () => {
+                    if (game && !game.isResting) {
+                        game._triggerRest();
+                    }
+                });
+                controls.appendChild(restBtn);
+
+                container.appendChild(controls);
+            }
+
+            // ----- 休息 UI -----
+            _updateRestUI(active) {
+                const container = this.container;
+                if (!container) return;
+                const existing = container.querySelector('.rest-overlay');
+                if (existing) existing.remove();
+
+                if (!active) return;
+
+                const overlay = document.createElement('div');
+                overlay.className = 'rest-overlay';
+                overlay.id = 'rest-overlay';
+                overlay.innerHTML = `
+              <div class="text-2xl font-light mb-2 text-slate-300">🧘 呼吸引導</div>
+              <div class="breath-circle inhale" id="rest-circle">吸氣</div>
+              <div class="text-sm text-slate-400" id="rest-timer">15s</div>
+              <div class="text-xs text-slate-500 mt-4">強制休息 15 秒 · 不可跳過</div>
+            `;
+                container.appendChild(overlay);
+
+                // 更新引導
+                const game = this.gameInstance;
+                if (!game) return;
+                const circle = overlay.querySelector('#rest-circle');
+                const timer = overlay.querySelector('#rest-timer');
+
+                this._restUpdateInterval = setInterval(() => {
+                    if (!game || !game.isResting) {
+                        clearInterval(this._restUpdateInterval);
+                        return;
+                    }
+                    const phase = game.restPhase;
+                    if (circle) {
+                        circle.className = `breath-circle ${phase}`;
+                        const labels = { inhale: '吸氣 ↑', hold: '屏息 —', exhale: '吐氣 ↓' };
+                        circle.textContent = labels[phase] || '...';
+                    }
+                    if (timer) {
+                        const remaining = Math.ceil(game.restDuration - game.restTotalTime);
+                        timer.textContent = `${remaining}s`;
+                    }
+                }, 200);
+            }
+
+            // ----- 覆蓋層 (成功/失敗) -----
+            _showOverlay(title, btnText, onAction) {
+                const container = this.container;
+                if (!container) return;
+                const overlay = document.createElement('div');
+                overlay.className =
+                'absolute inset-0 z-40 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center rounded-2xl';
+                overlay.innerHTML = `
+              <div class="text-4xl mb-4">${title.includes('🏆') ? '🏆' : '💔'}</div>
+              <div class="text-2xl font-bold mb-2">${title}</div>
+              <button class="btn-game primary mt-4 px-8 py-3 text-lg">${btnText}</button>
+            `;
+                container.appendChild(overlay);
+                overlay.querySelector('button').addEventListener('click', () => {
+                    overlay.remove();
+                    if (onAction) onAction();
+                });
+            }
+
+            _showLevelUp(level) {
+                const container = this.container;
+                if (!container) return;
+                const overlay = document.createElement('div');
+                overlay.className =
+                    'absolute inset-0 z-30 bg-black/40 backdrop-blur-sm flex flex-col items-center justify-center rounded-2xl pointer-events-none';
+                overlay.style.animation = 'fadeIn 0.3s ease-out';
+                overlay.innerHTML = `
+              <div class="text-5xl mb-2">🎉</div>
+              <div class="text-2xl font-bold text-amber-300">關卡 ${level-1} 完成！</div>
+              <div class="text-sm text-slate-300 mt-1">進入第 ${level} 關</div>
+            `;
+                container.appendChild(overlay);
+                setTimeout(() => overlay.remove(), 1500);
+            }
+
+            // ----- 輸入模式 -----
+            _setInputMode(mode) {
+                this.breath.setMode(mode);
+                if (mode === 'serial') {
+                    // 已經在點擊時處理
+                }
+                Logger.log('input_mode_change', { mode });
+            }
+
+            // ----- 鍵盤捷徑 -----
+            _setupGlobalKeys() {
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && this.currentView === 'game') {
+                        if (this.gameInstance) {
+                            this.gameInstance.stop();
+                            this._renderMenu();
+                        }
+                    }
+                    // 遊戲內按鍵轉發
+                    if (e.key === ' ' && this.gameInstance) {
+                        e.preventDefault();
+                        // 特殊操作: 畫筆切換 / 切割切換
+                        const g = this.gameInstance;
+                        if (g instanceof WindPainterGame) {
+                            g.togglePen();
+                        } else if (g instanceof GlassHeartGame) {
+                            g.toggleCutting();
+                        }
+                    }
+                });
+            }
+
+            // ----- 清理 -----
+            _cleanup() {
+                if (this._hudInterval) clearInterval(this._hudInterval);
+                if (this._breathDisplayInterval) clearInterval(this._breathDisplayInterval);
+                if (this._breathGameInterval) clearInterval(this._breathGameInterval);
+                if (this._restUpdateInterval) clearInterval(this._restUpdateInterval);
+                if (this._resizeObserver) this._resizeObserver.disconnect();
+                if (this.gameInstance) {
+                    this.gameInstance.destroy();
+                    this.gameInstance = null;
+                }
+            }
+        }
+
+        // ============================================================
+        //  7. 啟動應用
+        // ============================================================
+        const app = new App();
+
+        // 暴露給 console 除錯
+        window.__app = app;
+
+        // ============================================================
+        //  8. 後端 API (Vercel Serverless)
+        //    檔案位置: /api/logs/route.ts  (此為示範，實際需在 next.js 中)
+        // ============================================================
+        // 註: 由於此為前端演示，後端 API 已透過前端 Logger 類別模擬。
+        // 實際部署時需在 /api/logs/route.ts 中實作 POST 處理，並寫入 Vercel 日誌。
+        // 以下為後端程式碼範例 (TypeScript):
+        /*
+        // app/api/logs/route.ts
+        import { NextRequest, NextResponse } from 'next/server';
+
+        export async function POST(req: NextRequest) {
+          try {
+            const body = await req.json();
+            console.log('[LOG]', JSON.stringify(body, null, 2));
+            // 可寫入 Vercel 日誌 (stdout)
+            return NextResponse.json({ ok: true, received: body });
+          } catch (e) {
+            console.error('[LOG ERROR]', e);
+            return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });
+          }
+        }
+
+        export const config = {
+          runtime: 'edge', // 或 'nodejs'
+        };
+        */
+
+        console.log('🌬️ 呼吸訓練遊戲已啟動！');
+        console.log('📋 支援模式: 模擬 / 鍵盤 (↑↓) / 串列 (Web Serial)');
+        console.log('🎮 選擇遊戲開始體驗呼吸控制！');
     </script>
+
 </body>
 </html>
