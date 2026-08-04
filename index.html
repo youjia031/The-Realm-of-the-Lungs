@@ -64,11 +64,11 @@ const GAMES = {
     GLASS_HEART: 'glass_heart'
 };
 const GAME_META = {
-    [GAMES.WIND_PAINTER]: { label: '風之繪師', icon: '🎨', desc: '呼吸控制畫筆，描繪水彩形狀', theme: 'bg-gradient-to-br from-rose-100/10 via-amber-100/5 to-sky-100/10' },
-    [GAMES.CANDLE_EXPEDITION]: { label: '燭光遠征', icon: '🕯️', desc: '呼吸控制燭火，照亮迷宮尋路', theme: 'bg-gradient-to-br from-amber-900/20 via-stone-800/10 to-slate-900/20' },
-    [GAMES.MAGE_BREAKER]: { label: '魔導士破魔', icon: '⚔️', desc: '呼吸充能，釋放法術擊退敵人', theme: 'bg-gradient-to-br from-indigo-900/20 via-purple-800/10 to-fuchsia-900/20' },
-    [GAMES.DANDELION_EXPRESS]: { label: '蒲公英快遞', icon: '🌿', desc: '呼吸控制飛行，送達花粉', theme: 'bg-gradient-to-br from-emerald-900/20 via-teal-800/10 to-cyan-900/20' },
-    [GAMES.GLASS_HEART]: { label: '玻璃心大師', icon: '💎', desc: '呼吸控制壓力，雕刻水晶', theme: 'bg-gradient-to-br from-cyan-900/20 via-blue-800/10 to-indigo-900/20' }
+    [GAMES.WIND_PAINTER]: { label: '風之繪師', icon: '🎨', desc: '呼吸控制畫筆，描繪水彩形狀' },
+    [GAMES.CANDLE_EXPEDITION]: { label: '燭光遠征', icon: '🕯️', desc: '呼吸控制方向，探索迷宮' },
+    [GAMES.MAGE_BREAKER]: { label: '魔導士破魔', icon: '⚔️', desc: '呼吸充能，自動釋放法術' },
+    [GAMES.DANDELION_EXPRESS]: { label: '蒲公英快遞', icon: '🌿', desc: '呼吸控制飛行高度，送達花粉' },
+    [GAMES.GLASS_HEART]: { label: '玻璃心大師', icon: '💎', desc: '呼吸控制切割深度，雕刻水晶' }
 };
 
 // ============================================================
@@ -185,10 +185,8 @@ class BreathController {
                     const detectMatch = trimmed.match(/\[DETECT\].*LowEnergy=(\d+)/);
                     if (detectMatch) {
                         const raw = parseInt(detectMatch[1], 10);
-                        // 映射到 0-100 (最大值約 2,000,000)
                         const mapped = Math.round((raw / 2000000) * 100);
                         numericValue = Math.max(0, Math.min(100, mapped));
-                        // 若 Flow=no 則壓低
                         if (trimmed.includes('Flow=no')) {
                             numericValue = Math.min(numericValue, 5);
                         }
@@ -205,7 +203,7 @@ class BreathController {
                         const numMatch = trimmed.match(/(\d+)/);
                         if (numMatch) {
                             let raw = parseInt(numMatch[1], 10);
-                            if (raw > 100) { // ADC 0-1023
+                            if (raw > 100) {
                                 numericValue = Math.round((raw / 1023) * 100);
                             } else {
                                 numericValue = raw;
@@ -216,7 +214,6 @@ class BreathController {
                     if (numericValue !== null) {
                         const finalVal = Math.max(0, Math.min(100, numericValue));
                         this._setValue(finalVal);
-                        // console.log('[Breath]', finalVal);
                     }
                 }
             }
@@ -298,7 +295,7 @@ class Logger {
 }
 
 // ============================================================
-//  遊戲基底 GameBase (所有遊戲的父類)
+//  遊戲基底 GameBase
 // ============================================================
 class GameBase {
     constructor(container, breathController, gameId) {
@@ -525,7 +522,7 @@ class GameBase {
 }
 
 // ============================================================
-//  遊戲一：風之繪師
+//  遊戲一：風之繪師 (預設畫筆開啟)
 // ============================================================
 class WindPainterGame extends GameBase {
     constructor(container, breath) {
@@ -545,7 +542,7 @@ class WindPainterGame extends GameBase {
         this.completedPixels = 0;
         this.penX = 0;
         this.penY = 0;
-        this.penDown = false;
+        this.penDown = true; // 預設開啟
         this.strokeCount = 0;
         this.strokesPerPainting = 3;
         this.paintingsDone = 0;
@@ -570,7 +567,7 @@ class WindPainterGame extends GameBase {
         this._loadShape(0);
         this.penX = this.width / 2;
         this.penY = this.height / 2;
-        this.penDown = false;
+        this.penDown = true;
     }
 
     _loadShape(index) {
@@ -588,7 +585,7 @@ class WindPainterGame extends GameBase {
         this.paintedPixels = new Set();
         this.strokeCount = 0;
         this.mistakes = 0;
-        this.penDown = false;
+        this.penDown = true;
         this.targetShape = pts;
     }
 
@@ -827,11 +824,10 @@ class WindPainterGame extends GameBase {
 
     onRestStart() { this.penDown = false; }
     onRestEnd() { this.penDown = true; }
-    togglePen() { this.penDown = !this.penDown; if (this.penDown) this.lastBreathVal = this.breathValue; return this.penDown; }
 }
 
 // ============================================================
-//  遊戲二：燭光遠征
+//  遊戲二：燭光遠征 (呼吸區間控制四方向)
 // ============================================================
 class CandleExpeditionGame extends GameBase {
     constructor(container, breath) {
@@ -839,41 +835,39 @@ class CandleExpeditionGame extends GameBase {
         this.maze = [];
         this.mazeSize = 15;
         this.cellSize = 0;
-        this.playerX = 1;
-        this.playerY = 1;
+        this.playerX = 0;
+        this.playerY = 0;
+        this.direction = 'right';
+        this.speed = 80;
         this.exitX = 13;
         this.exitY = 13;
         this.lightRadius = 80;
         this.fuel = 100;
         this.maxFuel = 100;
-        this.fuelConsumption = 0.3;
         this.gems = 0;
         this.gemsTarget = 3;
-        this.mazeOffsetX = 0;
-        this.mazeOffsetY = 0;
         this.explored = new Set();
-        this.fogOfWar = true;
         this.hasCompass = false;
         this.compassTimer = 0;
-        this.trail = [];
         this.mazeGenerated = false;
         this.moveCooldown = 0;
-        this.keys = { up: false, down: false, left: false, right: false };
-        this._boundKey = this._handleKey.bind(this);
+        this.lastDirection = 'right';
     }
 
     onInit() {
         this._generateMaze(this.mazeSize);
         this.cellSize = Math.min(this.width, this.height) / (this.mazeSize + 2);
-        this.mazeOffsetX = (this.width - this.cellSize * this.mazeSize) / 2;
-        this.mazeOffsetY = (this.height - this.cellSize * this.mazeSize) / 2;
-        this.playerX = 1; this.playerY = 1;
-        this.exitX = this.mazeSize - 2; this.exitY = this.mazeSize - 2;
-        this.fuel = 100; this.gems = 0;
-        this.explored = new Set(); this.trail = [];
-        this.hasCompass = false; this.compassTimer = 0;
-        document.addEventListener('keydown', this._boundKey);
-        document.addEventListener('keyup', this._boundKey);
+        this.playerX = this.cellSize * 1.5;
+        this.playerY = this.cellSize * 1.5;
+        this.direction = 'right';
+        this.exitX = this.mazeSize - 2;
+        this.exitY = this.mazeSize - 2;
+        this.fuel = 100;
+        this.gems = 0;
+        this.explored = new Set();
+        this.hasCompass = false;
+        this.compassTimer = 0;
+        this.explored.add(`1,1`);
     }
 
     _generateMaze(size) {
@@ -908,6 +902,7 @@ class CandleExpeditionGame extends GameBase {
         this.mazeGenerated = true;
     }
 
+    // 呼吸值區間決定方向
     onBreath(v) {
         this.lightRadius = 40 + (v / 100) * 120;
         if (this.isPlaying && !this.isResting) {
@@ -917,68 +912,67 @@ class CandleExpeditionGame extends GameBase {
                 this.fuel = 0;
                 this.loseLife();
                 this.fuel = 80;
-                this.playerX = 1; this.playerY = 1;
+                this.playerX = this.cellSize * 1.5;
+                this.playerY = this.cellSize * 1.5;
+                this.direction = 'right';
                 this.explored = new Set();
+                this.explored.add(`1,1`);
                 this.resetCombo();
             }
         }
-    }
-
-    _handleKey(e) {
-        const key = e.key;
-        if (['arrowup','arrowdown','arrowleft','arrowright'].includes(key)) {
-            e.preventDefault();
-            this.keys[key.replace('arrow','').toLowerCase()] = e.type === 'keydown';
-        }
+        // 方向區間：0-25左，26-50上，51-75右，76-100下
+        let newDir = 'right';
+        if (v < 25) newDir = 'left';
+        else if (v < 50) newDir = 'up';
+        else if (v < 75) newDir = 'right';
+        else newDir = 'down';
+        this.direction = newDir;
     }
 
     update(dt) {
-        this.moveCooldown -= dt;
-        if (this.moveCooldown > 0) return;
         let dx = 0, dy = 0;
-        if (this.keys.up) dy = -1;
-        else if (this.keys.down) dy = 1;
-        else if (this.keys.left) dx = -1;
-        else if (this.keys.right) dx = 1;
-        if (dx !== 0 || dy !== 0) {
-            this.moveCooldown = 0.12;
-            const nx = this.playerX + dx, ny = this.playerY + dy;
-            if (nx >= 0 && nx < this.mazeSize && ny >= 0 && ny < this.mazeSize &&
-                this.maze[ny][nx] === 0) {
-                this.playerX = nx; this.playerY = ny;
-                this.trail.push({x: nx, y: ny});
-                if (this.trail.length > 30) this.trail.shift();
-                this.explored.add(`${nx},${ny}`);
-                if (nx === this.exitX && ny === this.exitY) {
-                    this.gems++;
-                    this.addScore(25);
-                    this.addCombo();
-                    this.successCount++;
-                    Logger.gameEvent(this.gameId, 'gem_collected', { gems: this.gems });
-                    if (this.gems >= this.gemsTarget) {
-                        this.levelComplete();
-                    } else {
-                        this.playerX = 1; this.playerY = 1;
-                        this.fuel = Math.min(this.maxFuel, this.fuel + 30);
-                        this.explored = new Set();
-                        this.explored.add('1,1');
-                    }
-                }
-                if (Math.random() < 0.01) {
-                    this.hasCompass = true;
-                    this.compassTimer = 5;
-                }
-            } else {
-                if (this.maze[ny] && this.maze[ny][nx] === 1) {
-                    this.loseLife();
-                    this.resetCombo();
-                    this.playerX = 1; this.playerY = 1;
+        switch (this.direction) {
+            case 'up':    dy = -1; break;
+            case 'down':  dy = 1;  break;
+            case 'left':  dx = -1; break;
+            case 'right': dx = 1;  break;
+        }
+        const speed = this.speed * dt;
+        let newX = this.playerX + dx * speed;
+        let newY = this.playerY + dy * speed;
+
+        const col = Math.floor(newX / this.cellSize);
+        const row = Math.floor(newY / this.cellSize);
+        const valid = (col >= 0 && col < this.mazeSize && row >= 0 && row < this.mazeSize &&
+                       this.maze[row][col] === 0);
+        if (valid) {
+            this.playerX = newX;
+            this.playerY = newY;
+            this.explored.add(`${col},${row}`);
+            if (col === this.exitX && row === this.exitY) {
+                this.gems++;
+                this.addScore(25);
+                this.addCombo();
+                this.successCount++;
+                Logger.gameEvent(this.gameId, 'gem_collected', { gems: this.gems });
+                if (this.gems >= this.gemsTarget) {
+                    this.levelComplete();
+                } else {
+                    this.playerX = this.cellSize * 1.5;
+                    this.playerY = this.cellSize * 1.5;
+                    this.direction = 'right';
+                    this.fuel = Math.min(this.maxFuel, this.fuel + 30);
                     this.explored = new Set();
-                    this.explored.add('1,1');
-                    this.fuel = Math.min(this.maxFuel, this.fuel + 20);
+                    this.explored.add(`1,1`);
                 }
             }
+            if (Math.random() < 0.005) {
+                this.hasCompass = true;
+                this.compassTimer = 5;
+            }
         }
+        // 撞牆則不移動
+
         if (this.hasCompass) {
             this.compassTimer -= dt;
             if (this.compassTimer <= 0) this.hasCompass = false;
@@ -988,9 +982,11 @@ class CandleExpeditionGame extends GameBase {
             this.fuel = 0;
             this.loseLife();
             this.fuel = 80;
-            this.playerX = 1; this.playerY = 1;
+            this.playerX = this.cellSize * 1.5;
+            this.playerY = this.cellSize * 1.5;
+            this.direction = 'right';
             this.explored = new Set();
-            this.explored.add('1,1');
+            this.explored.add(`1,1`);
             this.resetCombo();
         }
     }
@@ -1000,9 +996,11 @@ class CandleExpeditionGame extends GameBase {
         ctx.clearRect(0, 0, W, H);
         ctx.fillStyle = '#0a0808';
         ctx.fillRect(0, 0, W, H);
-        const cs = this.cellSize, ox = this.mazeOffsetX, oy = this.mazeOffsetY;
-        const px = this.playerX, py = this.playerY;
-        const viewRadius = Math.ceil(this.lightRadius / cs) + 2;
+        const cs = this.cellSize;
+        const ox = (W - cs * this.mazeSize) / 2;
+        const oy = (H - cs * this.mazeSize) / 2;
+        const viewRadius = Math.ceil(this.lightRadius / cs) + 3;
+        const px = this.playerX / cs, py = this.playerY / cs;
         ctx.save();
         for (let y = 0; y < this.mazeSize; y++) {
             for (let x = 0; x < this.mazeSize; x++) {
@@ -1042,7 +1040,7 @@ class CandleExpeditionGame extends GameBase {
             ctx.fillText('🚪', ex + cs/2, ey + cs/2 + 2);
             ctx.restore();
         }
-        const cx2 = ox + px * cs + cs/2, cy2 = oy + py * cs + cs/2;
+        const cx2 = this.playerX + ox, cy2 = this.playerY + oy;
         const grad = ctx.createRadialGradient(cx2, cy2, 0, cx2, cy2, this.lightRadius);
         grad.addColorStop(0, 'rgba(255,200,150,0.0)');
         grad.addColorStop(0.6, 'rgba(255,150,80,0.02)');
@@ -1069,7 +1067,7 @@ class CandleExpeditionGame extends GameBase {
             ctx.fillStyle = 'rgba(255,215,0,0.9)';
             ctx.font = '18px sans-serif';
             ctx.textAlign = 'right';
-            const angle = Math.atan2(this.exitY - py, this.exitX - px);
+            const angle = Math.atan2(this.exitY - this.playerY/cs, this.exitX - this.playerX/cs);
             const dirX = Math.cos(angle), dirY = Math.sin(angle);
             ctx.fillText('🧭', W - 30, 30);
             ctx.strokeStyle = 'rgba(255,215,0,0.3)';
@@ -1084,16 +1082,20 @@ class CandleExpeditionGame extends GameBase {
         ctx.font = '12px sans-serif';
         ctx.fillText(`🪔 ${Math.round(this.fuel)}%`, 20, 30);
         ctx.fillText(`💎 ${this.gems}/${this.gemsTarget}`, 20, 50);
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(`方向: ${this.direction}`, W - 20, 50);
     }
 
-    onRestStart() { this.keys = { up: false, down: false, left: false, right: false }; }
+    onRestStart() {}
     onRestEnd() {}
-    onDestroy() { document.removeEventListener('keydown', this._boundKey); document.removeEventListener('keyup', this._boundKey); }
-    onGameOver() { this.keys = { up: false, down: false, left: false, right: false }; }
+    onDestroy() {}
+    onGameOver() {}
 }
 
 // ============================================================
-//  遊戲三：魔導士破魔
+//  遊戲三：魔導士破魔 (無需額外操作)
 // ============================================================
 class MageBreakerGame extends GameBase {
     constructor(container, breath) {
@@ -1384,7 +1386,7 @@ class MageBreakerGame extends GameBase {
 }
 
 // ============================================================
-//  遊戲四：蒲公英快遞
+//  遊戲四：蒲公英快遞 (全呼吸控制)
 // ============================================================
 class DandelionExpressGame extends GameBase {
     constructor(container, breath) {
@@ -1644,7 +1646,7 @@ class DandelionExpressGame extends GameBase {
 }
 
 // ============================================================
-//  遊戲五：玻璃心大師
+//  遊戲五：玻璃心大師 (預設切割開啟)
 // ============================================================
 class GlassHeartGame extends GameBase {
     constructor(container, breath) {
@@ -1654,7 +1656,7 @@ class GlassHeartGame extends GameBase {
         this.cutPath = [];
         this.cutProgress = 0;
         this.cutIndex = 0;
-        this.cutting = false;
+        this.cutting = true; // 預設開啟
         this.cutDepth = 0;
         this.maxDepth = 20;
         this.fractureRisk = 0;
@@ -1950,11 +1952,10 @@ class GlassHeartGame extends GameBase {
 
     onRestStart() { this.cutting = false; }
     onRestEnd() { this.cutting = true; }
-    toggleCutting() { this.cutting = !this.cutting; return this.cutting; }
 }
 
 // ============================================================
-//  主應用程式 (App)
+//  主應用程式 (App) - 無任何遊戲內按鈕
 // ============================================================
 class App {
     constructor() {
@@ -2097,7 +2098,7 @@ class App {
         game.onLevelUp = () => { this._showLevelUp(game.level); };
         this._renderHUD(game);
         this._renderBreathBar();
-        this._renderGameControls(game);
+        // 沒有遊戲內控制按鈕，全部由呼吸控制
         game.start();
         const backBtn = document.createElement('button');
         backBtn.className = 'btn-game absolute top-4 left-4 z-20 bg-black/40 hover:bg-black/60';
@@ -2194,42 +2195,6 @@ class App {
         }, 60);
     }
 
-    _renderGameControls(game) {
-        const container = this.container;
-        if (!container) return;
-        const controls = document.createElement('div');
-        controls.className = 'absolute bottom-20 right-4 z-20 flex flex-col gap-2';
-        controls.style.pointerEvents = 'auto';
-        if (game instanceof WindPainterGame) {
-            const btn = document.createElement('button');
-            btn.className = 'btn-game bg-blue-500/30 hover:bg-blue-500/50';
-            btn.textContent = '🖌️ 畫筆 ' + (game.penDown ? 'ON' : 'OFF');
-            btn.addEventListener('click', () => {
-                const state = game.togglePen();
-                btn.textContent = '🖌️ 畫筆 ' + (state ? 'ON' : 'OFF');
-            });
-            controls.appendChild(btn);
-        }
-        if (game instanceof GlassHeartGame) {
-            const btn = document.createElement('button');
-            btn.className = 'btn-game bg-indigo-500/30 hover:bg-indigo-500/50';
-            btn.textContent = '⚡ 切割 ' + (game.cutting ? 'ON' : 'OFF');
-            btn.addEventListener('click', () => {
-                const state = game.toggleCutting();
-                btn.textContent = '⚡ 切割 ' + (state ? 'ON' : 'OFF');
-            });
-            controls.appendChild(btn);
-        }
-        const restBtn = document.createElement('button');
-        restBtn.className = 'btn-game bg-amber-500/30 hover:bg-amber-500/50';
-        restBtn.textContent = '🧘 休息';
-        restBtn.addEventListener('click', () => {
-            if (game && !game.isResting) game._triggerRest();
-        });
-        controls.appendChild(restBtn);
-        container.appendChild(controls);
-    }
-
     _updateRestUI(active) {
         const container = this.container;
         if (!container) return;
@@ -2308,12 +2273,7 @@ class App {
             if (e.key === 'Escape' && this.currentView === 'game') {
                 if (this.gameInstance) { this.gameInstance.stop(); this._renderMenu(); }
             }
-            if (e.key === ' ' && this.gameInstance) {
-                e.preventDefault();
-                const g = this.gameInstance;
-                if (g instanceof WindPainterGame) g.togglePen();
-                else if (g instanceof GlassHeartGame) g.toggleCutting();
-            }
+            // 鍵盤僅作為備用，不強制使用
         });
     }
 
