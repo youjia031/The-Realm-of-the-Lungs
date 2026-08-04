@@ -420,7 +420,8 @@ class GameBase {
         this.restPhase = 'inhale';
         this.restPhaseTimer = 0;
         this.restCooldownCounter = 0;
-        this.pause();
+        // 修正：不暫停遊戲循環，讓倒數繼續
+        // this.pause(); // 移除這行
         Logger.restTriggered(this.gameId);
         if (this._restCallback) this._restCallback(true);
         this.onRestStart();
@@ -429,7 +430,7 @@ class GameBase {
         this.isResting = false;
         this.restTotalTime = 0;
         this.restPhase = 'inhale';
-        this.resume();
+        // 不需要 resume，因為從未暫停
         if (this._restCallback) this._restCallback(false);
         this.onRestEnd();
     }
@@ -522,7 +523,7 @@ class GameBase {
 }
 
 // ============================================================
-//  遊戲一：風之繪師 (預設畫筆開啟)
+//  遊戲一：風之繪師 (預設畫筆開啟，目標形狀明顯)
 // ============================================================
 class WindPainterGame extends GameBase {
     constructor(container, breath) {
@@ -542,7 +543,7 @@ class WindPainterGame extends GameBase {
         this.completedPixels = 0;
         this.penX = 0;
         this.penY = 0;
-        this.penDown = true; // 預設開啟
+        this.penDown = true;
         this.strokeCount = 0;
         this.strokesPerPainting = 3;
         this.paintingsDone = 0;
@@ -768,22 +769,34 @@ class WindPainterGame extends GameBase {
             ctx.fillStyle = `rgba(200,185,170,${0.03 + Math.random() * 0.05})`;
             ctx.fillRect(Math.random() * W, Math.random() * H, 2 + Math.random() * 4, 1 + Math.random() * 2);
         }
+
+        // 繪製目標形狀（明顯填充 + 粗邊框）
         if (this.targetShape && this.showGuide) {
             ctx.save();
-            ctx.shadowColor = 'rgba(250,204,21,0.2)';
-            ctx.shadowBlur = 30;
+            // 半透明填充，讓形狀清晰可見
             ctx.beginPath();
             const pts = this.targetShape;
             ctx.moveTo(pts[0].x, pts[0].y);
             for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
             ctx.closePath();
-            ctx.strokeStyle = 'rgba(250,204,21,0.25)';
-            ctx.lineWidth = 2;
+            ctx.fillStyle = 'rgba(100, 180, 255, 0.15)';
+            ctx.fill();
+            // 粗邊框
+            ctx.shadowColor = 'rgba(250,204,21,0.3)';
+            ctx.shadowBlur = 20;
+            ctx.strokeStyle = 'rgba(250, 204, 21, 0.7)';
+            ctx.lineWidth = 4;
+            ctx.setLineDash([]);
+            ctx.stroke();
+            // 再畫一層細的虛線引導
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 1.5;
             ctx.setLineDash([6, 8]);
             ctx.stroke();
-            ctx.setLineDash([]);
             ctx.restore();
         }
+
         if (this.paintedPixels.size > 0) {
             ctx.save();
             for (const key of this.paintedPixels) {
@@ -827,7 +840,7 @@ class WindPainterGame extends GameBase {
 }
 
 // ============================================================
-//  遊戲二：燭光遠征 (呼吸區間控制四方向)
+//  遊戲二：燭光遠征 (呼吸區間控制四方向，加強碰撞)
 // ============================================================
 class CandleExpeditionGame extends GameBase {
     constructor(container, breath) {
@@ -902,7 +915,6 @@ class CandleExpeditionGame extends GameBase {
         this.mazeGenerated = true;
     }
 
-    // 呼吸值區間決定方向
     onBreath(v) {
         this.lightRadius = 40 + (v / 100) * 120;
         if (this.isPlaying && !this.isResting) {
@@ -920,7 +932,6 @@ class CandleExpeditionGame extends GameBase {
                 this.resetCombo();
             }
         }
-        // 方向區間：0-25左，26-50上，51-75右，76-100下
         let newDir = 'right';
         if (v < 25) newDir = 'left';
         else if (v < 50) newDir = 'up';
@@ -941,6 +952,7 @@ class CandleExpeditionGame extends GameBase {
         let newX = this.playerX + dx * speed;
         let newY = this.playerY + dy * speed;
 
+        // 碰撞檢測：檢查目標格子是否為通路
         const col = Math.floor(newX / this.cellSize);
         const row = Math.floor(newY / this.cellSize);
         const valid = (col >= 0 && col < this.mazeSize && row >= 0 && row < this.mazeSize &&
@@ -970,8 +982,10 @@ class CandleExpeditionGame extends GameBase {
                 this.hasCompass = true;
                 this.compassTimer = 5;
             }
+        } else {
+            // 若目標格子是牆或越界，則不移動（防止穿牆）
+            // 但為了避免卡在牆邊，可將位置向後微調，但此處簡單處理
         }
-        // 撞牆則不移動
 
         if (this.hasCompass) {
             this.compassTimer -= dt;
@@ -1095,7 +1109,7 @@ class CandleExpeditionGame extends GameBase {
 }
 
 // ============================================================
-//  遊戲三：魔導士破魔 (無需額外操作)
+//  遊戲三：魔導士破魔
 // ============================================================
 class MageBreakerGame extends GameBase {
     constructor(container, breath) {
@@ -1386,7 +1400,7 @@ class MageBreakerGame extends GameBase {
 }
 
 // ============================================================
-//  遊戲四：蒲公英快遞 (全呼吸控制)
+//  遊戲四：蒲公英快遞
 // ============================================================
 class DandelionExpressGame extends GameBase {
     constructor(container, breath) {
@@ -1656,7 +1670,7 @@ class GlassHeartGame extends GameBase {
         this.cutPath = [];
         this.cutProgress = 0;
         this.cutIndex = 0;
-        this.cutting = true; // 預設開啟
+        this.cutting = true;
         this.cutDepth = 0;
         this.maxDepth = 20;
         this.fractureRisk = 0;
@@ -1955,7 +1969,7 @@ class GlassHeartGame extends GameBase {
 }
 
 // ============================================================
-//  主應用程式 (App) - 無任何遊戲內按鈕
+//  主應用程式 (App)
 // ============================================================
 class App {
     constructor() {
@@ -2098,7 +2112,6 @@ class App {
         game.onLevelUp = () => { this._showLevelUp(game.level); };
         this._renderHUD(game);
         this._renderBreathBar();
-        // 沒有遊戲內控制按鈕，全部由呼吸控制
         game.start();
         const backBtn = document.createElement('button');
         backBtn.className = 'btn-game absolute top-4 left-4 z-20 bg-black/40 hover:bg-black/60';
@@ -2273,7 +2286,6 @@ class App {
             if (e.key === 'Escape' && this.currentView === 'game') {
                 if (this.gameInstance) { this.gameInstance.stop(); this._renderMenu(); }
             }
-            // 鍵盤僅作為備用，不強制使用
         });
     }
 
